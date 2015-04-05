@@ -61,3 +61,25 @@
       (when next
         (recur next (rest items))))))
       
+
+
+(defn transform-data-item! [data-dir item]
+  (let [rel-out-path (:file item)
+        output-result-file-path (.toString (Paths/get data-dir (into-array String [rel-out-path])))
+        output-transformed (str/join [output-result-file-path ".ecma.scxml"])
+        xslt-path (.toString (Paths/get data-dir (into-array String ["confEcma.xsl"])))
+        transform-args [(.concat "-s:" output-result-file-path) (.concat "-xsl:" xslt-path) (.concat "-o:" output-transformed)]]
+    (when (not (.endsWith output-result-file-path ".txt"))
+      (try
+        (Transform/main (into-array String transform-args))
+        (catch Exception e nil)))))
+
+        
+  
+(defn transform-data! [data-dir parsed]
+  (loop [item (first parsed)
+         items (rest parsed)]
+    (let [next (first items)]
+      (transform-data-item! data-dir item)
+      (when next
+        (recur next (rest items))))))
