@@ -134,7 +134,7 @@
 ;context and then when creating the state machine executable context things get
 ;setup.
 (defn set-document-order [state idx]
-  (let [state (assoc state :doc-order idx)
+  (let [state (assoc state :document-order idx)
         [idx children] (reduce (fn [[idx children] state] 
                                  (let [[new-child new-idx] (set-document-order state idx)]
                                    [new-idx (conj new-child children)]))
@@ -154,6 +154,9 @@
      :history {} ;saved history from exit from history states
      :datamodel {} 
      :id-state-map id-state-map } ))
+
+(defn get-parent-state [state-or-transition context]
+  ((:parent state-or-transition) (:id-state-map context)))
 
 (defn is-history-state [state]
   (= :history (:type state)))
@@ -219,7 +222,7 @@
     (if (is-history-state state)
       ;entering a history state
       (let [context-history ((:id state) (:history context))
-            ancestor ((:parent state) (:id-state-map context))]
+            ancestor (get-parent-state state context)]
         (if (not-empty context-history)
           (add-descendant-and-ancestor-states context-history ancestor enter-args context)
           (let [[state-seq content] (get-history-state-initial-data state)
@@ -258,7 +261,7 @@
 
 
 (defn add-ancestor-states-to-enter [state ancestor enter-args context]
-  (let [parent ((:parent state) (:id-state-map context))
+  (let [parent (get-parent-state state context)
         ancestors (get-proper-ancestors state ancestor context)]
     (reduce (fn [enter-args state] (add-ancestor-state-to-enter state enter-args context)) enter-args ancestors)))
 
@@ -268,22 +271,64 @@
     (reduce (fn [args state] (add-descendant-states-to-enter enter-args context)) enter-args state-list)))
 
 
-;;----------------------------------------------------
+(defn get-document-child-range [parent]
+  "If a node's doc order is outside this range, inclusive
+then that node is not a child of this parent"
+  (let [child-vec (:children parent)
+        child-count (count child-vec)]
+    (if (> child-count 0)
+      [(:document-order (0 child-vec)) (:document-order ((dec child-count) child-vec))]
+      [0 -1])))
+
+
+(defn is-descendant [child parent context]
+  (let [child-doc-order (:document-order child)
+        [range-start range-end] (get-document-child-range parent)]
+        (if (and (<= child-doc-order range-end)
+                 (>= child-doc-order range-start))
+          true
+          false)))
+
+
+(defn non-parallel-or-parent [state context]
+  (if (= (:type state)
+         :parallel)
+    (non-parallel-or-parent (get-parent-state state context))
+    state))
+
+
+(defn find-LCCA-state [lhs-state rhs-state context]
+  "least common compound ancestor"
+  (let [lhs-doc (:document-order lhs-state)
+        rhs-doc (:document-order rhs-state)
+        lhs-less-than (< lhs-doc rhs-doc)
+        [min-state max-state] (if lhs-less-than [lhs-state rhs-state] [rhs-state lhs-state])]
+    (if (is-descendant max-state min-state)
+      (non-parallel-or-parent min-state context)
+      (find-LCCA-state (get-parent-state min-state context)))))
+        
+
+
+(defn find-LCCA [state-seq context]
+  (reduce (fn [lhs rhs] (find-LCCA-state lhs rhs context))))
+
+
 (defn get-transition-domain [transition context]
   "take start, end points and find common ancestor"
   (let [targets (get-effective-target-states transition context)
         state ((:parent transition) (:id-state-map context))
-        is-internal (:internal transition)]
-    (if is-internal
-      (let []
-    (reduce (fn [domain new-state]
-
-;;----------------------------------------------------
+        is-internal (:internal transition)
+        source (get-parent-state transition context)]
+    (if (and is-internal
+             (is-compound-state source)
+             (every? (fn [state] (is-descendant state source context))))
+      source
+      (find-LCCA (conj targets source)))))
               
 
 (defn compute-entry-set-transition[transition enter-args context]
   (let [enter-args (compute-entry-set-transition-targets (:targets transition) enter-args context)
-        ancester (get-transition-domain transition context)
+        ancestor (get-transition-domain transition context)
         targets (get-effective-target-states transition context)]
     (reduce (fn [enter-args state] (add-ancestor-states-to-enter state ancestor enter-args context)) enter-args targets)))
        
@@ -291,8 +336,19 @@
 (defn compute-entry-set [transitions enter-args context]
   (reduce (fn [enter-args transition] (compute-entry-set-transition transition enter-args context)) enter-args transitions))
 
-(defn entry-state-sort [state-seq]
+(defn enter-state-sort [state-seq]
   (sort-by :document-order state-seq))
+
+(defn execute-content [content-list-list context])
+
+(defn get-initial-transition [state]
+  (let [transition (:initial state)]
+    (if transition
+      transition
+      (let [first-child (first (:children state))]
+        (if first-child
+          { :parent (:id state) :content [] :type :transition :targets [(:id first-child)] }
+          nil)))))
 
 (defn enter-states[transitions context]
   (let [enter-args [(create-ordered-set) (create-ordered-set) {}]
@@ -309,3 +365,8 @@
             (:configuration context)
             states-to-enter)))
                 
+
+(defn get-initial-configuration [context]
+  (let [scxml (:machine context)
+        transition (get-initial-transition scxml)]
+    (enter-states [transition] context)))
