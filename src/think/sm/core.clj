@@ -1,5 +1,6 @@
 (ns think.sm.core
-  (:require [clojure.xml :as xml])
+  (:require [clojure.xml :as xml]
+            [clojure.string :as str])
   (:import (java.io FileInputStream File)))
 
 
@@ -34,10 +35,13 @@
         new-children (conj (:children parent) new-state)]
     (assoc parent :children new-children)))
 
+(defn space-delimited-string-to-keyword-array [data]
+  (mapv keyword (str/split data #" ")))
+
 
 (defn parse-transition [parent node]
   (let [type :transition
-        target (keyword (:target (:attrs node)))
+        target (space-delimited-string-to-keyword-array (:target (:attrs node)))
         transition-content (reduce parse-executable-content [] (:content node))
         new-transition { :type type :content transition-content :targets [target] :parent (:id parent) }
         new-transitions (conj (:transitions parent) new-transition)]
@@ -126,10 +130,25 @@
   "Returns a sequence of a depth first walk"
   (tree-seq has-state-children? state-children machine-node))
 
+;This is done as a second step so that we can create states outside the xml
+;context and then when creating the state machine executable context things get
+;setup.
+(defn set-document-order [state idx]
+  (let [state (assoc state :doc-order idx)
+        [idx children] (reduce (fn [[idx children] state] 
+                                 (let [[new-child new-idx] (set-document-order state idx)]
+                                   [new-idx (conj new-child children)]))
+                               [idx []]
+                               (:children state))]
+        [(assoc state :children children) idx]))
+        
+
 
 (defn create-state-machine-executable-context [machine]
   ;run through machine creating map from id to state
-  (let [id-state-map (reduce (fn [map node] (assoc map (:id node) node)) {} (rest (dfs-state-walk machine)))]
+  ;and setting document order
+  (let [[machine state-count] (set-document-order machine 1)
+        id-state-map (reduce (fn [map node] (assoc map (:id node) node)) {} (rest (dfs-state-walk machine)))]
     { :machine machine 
      :configuration (create-ordered-set) ;which states are are in
      :history {} ;saved history from exit from history states
@@ -159,7 +178,7 @@
 (defn enter-parallel-state [state enter-args context]
   (let [[states-to-enter states-for-default-entry default-history-content] enter-args
         children (:children state)
-        not-entered (filter (fn [state] (not(in-ordered-set states-to-enter state))) children) ;delicate naming on that one
+        not-entered (filter (fn [state] (not(in-ordered-set? states-to-enter state))) children) ;delicate naming on that one
         enter-args [states-to-enter states-for-default-entry default-history-content]]
     (reduce (fn [state] (add-descendant-states-to-enter state enter-args context)) enter-args not-entered)))
 
@@ -180,7 +199,7 @@
   (let [initial-transition (:initial state)]
     (if initial-transition
       (:targets initial-transition)
-      (list (first (:children state))))))
+      (list (:id (first (:children state)))))))
          
 
 (defn get-effective-target-states [item context]
@@ -242,3 +261,51 @@
   (let [parent ((:parent state) (:id-state-map context))
         ancestors (get-proper-ancestors state ancestor context)]
     (reduce (fn [enter-args state] (add-ancestor-state-to-enter state enter-args context)) enter-args ancestors)))
+
+(defn compute-entry-set-transition-targets [state-id-list enter-args context]
+  (let [id-map (:id-state-map context)
+        state-list (map (fn [id] (id id-map)))]
+    (reduce (fn [args state] (add-descendant-states-to-enter enter-args context)) enter-args state-list)))
+
+
+;;----------------------------------------------------
+(defn get-transition-domain [transition context]
+  "take start, end points and find common ancestor"
+  (let [targets (get-effective-target-states transition context)
+        state ((:parent transition) (:id-state-map context))
+        is-internal (:internal transition)]
+    (if is-internal
+      (let []
+    (reduce (fn [domain new-state]
+
+;;----------------------------------------------------
+              
+
+(defn compute-entry-set-transition[transition enter-args context]
+  (let [enter-args (compute-entry-set-transition-targets (:targets transition) enter-args context)
+        ancester (get-transition-domain transition context)
+        targets (get-effective-target-states transition context)]
+    (reduce (fn [enter-args state] (add-ancestor-states-to-enter state ancestor enter-args context)) enter-args targets)))
+       
+
+(defn compute-entry-set [transitions enter-args context]
+  (reduce (fn [enter-args transition] (compute-entry-set-transition transition enter-args context)) enter-args transitions))
+
+(defn entry-state-sort [state-seq]
+  (sort-by :document-order state-seq))
+
+(defn enter-states[transitions context]
+  (let [enter-args [(create-ordered-set) (create-ordered-set) {}]
+        enter-args (compute-entry-set transitions enter-args context)
+        [states-to-enter states-for-default-entry default-history-content] enter-args
+        ordered-enter-states (enter-state-sort (:vec states-to-enter))]
+    (reduce (fn [configuration state]
+              (execute-content (:onentry state) context)
+              (when (in-ordered-set? states-for-default-entry state)
+                (execute-content (:content (get-initial-transition state))))
+              (when ((:id state) default-history-content context)
+                (execute-content ((:id state) default-history-content)))
+              (add-to-ordered-set configuration state))
+            (:configuration context)
+            states-to-enter)))
+                
