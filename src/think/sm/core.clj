@@ -41,11 +41,11 @@
 
 (defn parse-transition [parent node]
   (let [type :transition
-        target (space-delimited-string-to-keyword-array (:target (:attrs node)))
+        target-list (space-delimited-string-to-keyword-array (:target (:attrs node)))
         transition-content (reduce parse-executable-content [] (:content node))
-        new-transition { :type type :content transition-content :targets [target] :parent (:id parent) }
+        new-transition { :type type :content transition-content :targets target-list :parent (:id parent) :id (:id parent) }
         new-transitions (conj (:transitions parent) new-transition)]
-    (assoc parent :transitions new-transition)))
+    (assoc parent :transitions new-transitions)))
 
 (defn parse-log [node]
   { :type :log :label (:label (:attrs node)) :expr (:expr (:attrs node)) }) 
@@ -77,7 +77,7 @@
                    
 
 (defn parse-xml-scxml [node]
-  (reduce parse-state-child {:type :scxml :children [] :datamodel (keyword (:attrs node)) } (:content node)))
+  (reduce parse-state-child {:type :scxml :id :scxml_root :children [] :datamodel (keyword (:attrs node)) } (:content node)))
 
 ;returns a pure machine.  Note that you still need context to execute this machine.
 (defn load-scxml-file [fname]
@@ -108,6 +108,9 @@
         new-set (disj set id)]
     { :set new-set :vec new-vec }))
 
+(defn remove-from-ordered-set-seq [ordered-set state-seq]
+  (reduce remove-from-ordered-set ordered-set state-seq))
+
 (defn in-ordered-set? [ordered-set state]
   ((:id state) (:set ordered-set)))
 
@@ -136,11 +139,11 @@
 (defn set-document-order [state idx]
   (let [state (assoc state :document-order idx)
         [idx children] (reduce (fn [[idx children] state] 
-                                 (let [[new-child new-idx] (set-document-order state idx)]
-                                   [new-idx (conj new-child children)]))
+                                 (let [[new-child new-idx] (set-document-order state (inc idx))]
+                                   [new-idx (conj children new-child)]))
                                [idx []]
                                (:children state))]
-        [(assoc state :children children) idx]))
+    [(assoc state :children children) idx]))
         
 
 
@@ -148,9 +151,9 @@
   ;run through machine creating map from id to state
   ;and setting document order
   (let [[machine state-count] (set-document-order machine 1)
-        id-state-map (reduce (fn [map node] (assoc map (:id node) node)) {} (rest (dfs-state-walk machine)))]
+        id-state-map (reduce (fn [map node] (assoc map (:id node) node)) {} (dfs-state-walk machine))]
     { :machine machine 
-     :configuration (create-ordered-set) ;which states are are in
+     :configuration (add-to-ordered-set (create-ordered-set) machine);which states are we in
      :history {} ;saved history from exit from history states
      :datamodel {} 
      :id-state-map id-state-map } ))
@@ -203,12 +206,16 @@
     (if initial-transition
       (:targets initial-transition)
       (list (:id (first (:children state)))))))
+
+(defn id-list-to-state-list[id-seq context]
+  (let [id-map (:id-state-map context)]
+    (mapv (fn [id] (id id-map)) id-seq)))
          
 
 (defn get-effective-target-states [item context]
   (let [initial-target-list (if (= (:type item) :state)
                               (get-state-initial-targets item context)
-                              (:targets item))]
+                              (id-list-to-state-list (:targets item) context))]
     (loop [retval (create-ordered-set)
            state (first initial-target-list)
            initial-target-list (rest initial-target-list)]
@@ -248,16 +255,18 @@
       (enter-parallel-state state enter-args context)
       enter-args)))
 
-
-
-(defn get-proper-ancestors [state ancestor context]
+(defn get-proper-ancestors 
+  ([state ancestor context retval]
   (let [state-map (:id-state-map context)]
-    (loop [retval ()
-           parent ((:parent state) state-map)]
+    (loop [retval retval
+           parent (state-map (:parent state))]
       (if (and parent 
-               (not (= (:id parent) (:id ancestor))))
-        (recur (conj retval parent) ((:parent parent) state-map))
+               (or (not ancestor)
+                   (not (= (:id parent) (:id ancestor)))))
+        (recur (conj retval parent) (state-map (:parent parent)))
         retval))))
+  ([state ancestor context]
+   (get-proper-ancestors state ancestor context [])))
 
 
 (defn add-ancestor-states-to-enter [state ancestor enter-args context]
@@ -267,8 +276,8 @@
 
 (defn compute-entry-set-transition-targets [state-id-list enter-args context]
   (let [id-map (:id-state-map context)
-        state-list (map (fn [id] (id id-map)))]
-    (reduce (fn [args state] (add-descendant-states-to-enter enter-args context)) enter-args state-list)))
+        state-list (map (fn [id] (id id-map)) state-id-list)]
+    (reduce (fn [args state] (add-descendant-states-to-enter state enter-args context)) enter-args state-list)))
 
 
 (defn get-document-child-range [parent]
@@ -277,11 +286,11 @@ then that node is not a child of this parent"
   (let [child-vec (:children parent)
         child-count (count child-vec)]
     (if (> child-count 0)
-      [(:document-order (0 child-vec)) (:document-order ((dec child-count) child-vec))]
+      [(:document-order (child-vec 0)) (:document-order (child-vec (dec child-count)))]
       [0 -1])))
 
 
-(defn is-descendant [child parent context]
+(defn is-descendant [child parent]
   (let [child-doc-order (:document-order child)
         [range-start range-end] (get-document-child-range parent)]
         (if (and (<= child-doc-order range-end)
@@ -305,12 +314,12 @@ then that node is not a child of this parent"
         [min-state max-state] (if lhs-less-than [lhs-state rhs-state] [rhs-state lhs-state])]
     (if (is-descendant max-state min-state)
       (non-parallel-or-parent min-state context)
-      (find-LCCA-state (get-parent-state min-state context)))))
+      (find-LCCA-state (get-parent-state min-state context) max-state context))))
         
 
 
 (defn find-LCCA [state-seq context]
-  (reduce (fn [lhs rhs] (find-LCCA-state lhs rhs context))))
+  (reduce (fn [lhs rhs] (find-LCCA-state lhs rhs context)) state-seq))
 
 
 (defn get-transition-domain [transition context]
@@ -321,9 +330,9 @@ then that node is not a child of this parent"
         source (get-parent-state transition context)]
     (if (and is-internal
              (is-compound-state source)
-             (every? (fn [state] (is-descendant state source context))))
+             (every? (fn [state] (is-descendant state source)) targets))
       source
-      (find-LCCA (conj targets source)))))
+      (find-LCCA (conj targets source) context))))
               
 
 (defn compute-entry-set-transition[transition enter-args context]
@@ -351,6 +360,7 @@ then that node is not a child of this parent"
           nil)))))
 
 (defn enter-states[transitions context]
+  "Enter the states indicated by this list of transitions.  Return a new configuration ordered set"
   (let [enter-args [(create-ordered-set) (create-ordered-set) {}]
         enter-args (compute-entry-set transitions enter-args context)
         [states-to-enter states-for-default-entry default-history-content] enter-args
@@ -359,14 +369,104 @@ then that node is not a child of this parent"
               (execute-content (:onentry state) context)
               (when (in-ordered-set? states-for-default-entry state)
                 (execute-content (:content (get-initial-transition state))))
-              (when ((:id state) default-history-content context)
-                (execute-content ((:id state) default-history-content)))
+              (when ((:id state) default-history-content)
+                (execute-content ((:id state) default-history-content) context))
               (add-to-ordered-set configuration state))
             (:configuration context)
-            states-to-enter)))
+            ordered-enter-states)))
                 
 
 (defn get-initial-configuration [context]
   (let [scxml (:machine context)
         transition (get-initial-transition scxml)]
     (enter-states [transition] context)))
+
+(defn is-atomic-state [state]
+  (and (= (:type state)
+          :state)
+       (= 0 (count (:children state)))))
+
+(defn get-atomic-states-from-configuration [context]
+  (let [configuration (:configuration context)]
+    (filter is-atomic-state (:vec configuration))))
+
+
+(defn state-seq-to-transition-seq [state-seq]
+  (mapcat :transitions state-seq))
+
+;since we don't support event or conditions yet...
+(defn active-eventless-transition? [transition context]
+  true)
+
+(defn get-active-transition[state-seq filterp]
+  (let [transitions (state-seq-to-transition-seq state-seq)
+        active-transitions (filter filterp transitions)]
+    (first active-transitions)))
+
+(defn get-transitions-from-atomics [atomics-seq filterp context]
+  (reduce (fn [transitions atomic]
+            (let [state-seq (get-proper-ancestors atomic nil context [atomic])
+                  first-transition (get-active-transition state-seq filterp)]
+              (if first-transition
+                (conj transitions first-transition)
+                transitions)))
+          []
+          atomics-seq))
+
+(defn transition-preempt? [first-trans second-trans context]
+  "does the first transition preempt the second transition"
+  (let [first-domain (get-transition-domain first-trans context)
+        second-domain (get-transition-domain second-trans context)]
+    (or (= (:id first-domain)
+           (:id second-domain))
+        (is-descendant second-domain first-domain))))
+    
+
+(defn update-filtered-transitions[filtered-transitions incoming context]
+  (let [filter-vec (:vec filtered-transitions)
+        incoming-preempted (not-empty (filter 
+                                       (fn [filter-trans] 
+                                         (transition-preempt? filter-trans incoming context))
+                                       filter-vec))]
+    (if incoming-preempted
+      filtered-transitions
+      (let [filtered-preempted (filter
+                                (fn [filter-trans]
+                                  (transition-preempt? incoming filter-trans context))
+                                filter-vec)
+            filtered-transitions (remove-from-ordered-set-seq filtered-transitions filtered-preempted)]
+        (add-to-ordered-set filtered-transitions incoming)))))
+
+(defn remove-conflicting-transitions [transitions context]
+  "it is possible that the same transition is selected multiple times
+coming from different leaves.  Furthermore the selected transitions may
+conflict with each other at this point forcing a further filtering step"
+  (let [filtered-transitions (reduce
+                              (fn [filtered-transitions incoming]
+                                (update-filtered-transitions filtered-transitions incoming context))
+                              (create-ordered-set)
+                              transitions)]
+    (:vec filtered-transitions)))
+
+
+
+(defn select-transitions [context transition-p]
+  (let [atomics (get-atomic-states-from-configuration context)
+        selected (get-transitions-from-atomics atomics transition-p context)]
+    (remove-conflicting-transitions selected context)))
+
+
+(defn select-eventless-transitions [context]
+  (select-transitions context (fn [transition] (active-eventless-transition? transition context))))
+    
+(defn microstep [transitions context]
+  context)
+    
+;step the state machine returning a new context with an
+;update configuration.
+(defn step-state-machine [context]
+  (let [eventless (select-eventless-transitions context)]
+    (if (not-empty eventless)
+      (microstep eventless context)
+      context)))
+      
