@@ -147,7 +147,7 @@
         
 
 
-(defn create-state-machine-executable-context [machine]
+(defn create-context [machine]
   ;run through machine creating map from id to state
   ;and setting document order
   (let [[machine state-count] (set-document-order machine 1)
@@ -472,8 +472,8 @@ conflict with each other at this point forcing a further filtering step"
 must not change the order of children, simply remove children that do not
 fit criteria"
   (filter (fn [child]
-            (not-empty (filter (fn [parent] (is-descendant child parent)) parents))
-            children)))
+            (not-empty (filter (fn [parent] (is-descendant child parent)) parents)))
+            children))
 
 
 (defn compute-exit-set [transitions context]
