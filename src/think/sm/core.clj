@@ -30,7 +30,7 @@
   (let [type (:tag node)
         id-str (:id (:attrs node))
         id (if id-str (keyword id-str) nil)
-        new-vestigial-state { :type type :id id :children [] :onentry [] :onexit [] :transitions [] :parent (:id parent) }
+        new-vestigial-state { :type type :id id :children [] :onentry [] :onexit [] :transitions [] :history [] :parent (:id parent) }
         new-state (reduce parse-state-child new-vestigial-state (:content node))
         new-children (conj (:children parent) new-state)]
     (assoc parent :children new-children)))
@@ -364,16 +364,22 @@ then that node is not a child of this parent"
   (let [enter-args [(create-ordered-set) (create-ordered-set) {}]
         enter-args (compute-entry-set transitions enter-args context)
         [states-to-enter states-for-default-entry default-history-content] enter-args
-        ordered-enter-states (enter-state-sort (:vec states-to-enter))]
-    (reduce (fn [configuration state]
-              (execute-content (:onentry state) context)
-              (when (in-ordered-set? states-for-default-entry state)
-                (execute-content (:content (get-initial-transition state))))
-              (when ((:id state) default-history-content)
-                (execute-content ((:id state) default-history-content) context))
-              (add-to-ordered-set configuration state))
-            (:configuration context)
-            ordered-enter-states)))
+        ordered-enter-states (enter-state-sort (:vec states-to-enter))
+        configuration (reduce (fn [configuration state]
+                                (execute-content (:onentry state) context)
+                                (when (in-ordered-set? states-for-default-entry state)
+                                  (execute-content (:content (get-initial-transition state))))
+                                (when ((:id state) default-history-content)
+                                  (execute-content ((:id state) default-history-content) context))
+                                (add-to-ordered-set configuration state))
+                              (:configuration context)
+                              ordered-enter-states)
+        ordered-configuration (enter-state-sort (:vec configuration))]
+    ;we keep configuration sorted in document order.  This allows some algorithmic
+    ;simplifications and is just logical to look at.
+    (assoc configuration :vec (vec ordered-configuration))))
+        
+                           
                 
 
 (defn get-initial-configuration [context]
@@ -456,14 +462,52 @@ conflict with each other at this point forcing a further filtering step"
     (remove-conflicting-transitions selected context)))
 
 
+
 (defn select-eventless-transitions [context]
   (select-transitions context (fn [transition] (active-eventless-transition? transition context))))
+
+
+(defn get-descendants [parents children]
+  "if a child is a descendant of any of the parents then return the child
+must not change the order of children, simply remove children that do not
+fit criteria"
+  (filter (fn [child]
+            (not-empty (filter (fn [parent] (is-descendant child parent)) parents))
+            children)))
+
+
+(defn compute-exit-set [transitions context]
+  (let [domains (map (fn [transition] (get-transition-domain transition context)) transitions)
+        descendants (get-descendants domains (:vec (:configuration context)))]
+    ;we know configuration is sorted in document order
+    ;so we know that descendants must be.  For exiting states, however
+    ;we really want exactly the reverse of document order.
+    (reverse descendants)))
+
+
+(defn exit-states[transitions context]
+  "exit states returning a new configuration"
+  (let [states-to-exit (compute-exit-set transitions context)]
+    (reduce (fn [configuration state]
+              (execute-content (:onexit state) context)
+              ;note that the state is still in the configuration when its content is executed
+              (remove-from-ordered-set configuration state))
+            (:configuration context)
+            states-to-exit)))
+                
     
 (defn microstep [transitions context]
-  context)
+  (let [configuration (exit-states transitions context)
+        transition-content (map :content transitions)
+        _ (reduce (fn [_ content] (execute-content content context) []) [] transition-content)
+        context (assoc context :configuration configuration)
+        configuration (enter-states transitions context)]
+    (assoc context :configuration configuration)))
+
     
 ;step the state machine returning a new context with an
 ;update configuration.
+
 (defn step-state-machine [context]
   (let [eventless (select-eventless-transitions context)]
     (if (not-empty eventless)
