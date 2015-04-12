@@ -3,18 +3,21 @@
             [clojure.string :as str]
             [think.sm.core :refer :all]))
 
-(deftest a-test
-  (testing (.concat "testing from: " (System/getProperty "user.dir"))
-    (is (= 0 1))))
-
 (def test-base-dir "data")
 
 (defn run-data-test [testname is-optional]
-  (testing (.concate "scxml conformance test: " testname))
+  (testing (.concat "scxml conformance test: " testname))
   (let [subdir (if is-optional "optional" "mandatory")
         full-test-name (str/join [test-base-dir "/" subdir "/test" testname ".txml.ecma.scxml"])
         machine (load-scxml-file full-test-name)
-        configuration (execute machine)
-        pass-count (count (filter (fn [state] (= (:id state) :pass)) configuration))]
-    (is (= 1 pass-count))))
+        context (create-context machine)
+        initial-context (assoc context :configuration (get-initial-configuration context))
+        final-context (step-state-machine initial-context)
+        final-configuration (:configuration final-context)]
+    (is (:pass (:set final-configuration)))
+    (is (not (:fail (:set final-configuration))))
+    final-configuration))
     
+
+(deftest test-355
+  (run-data-test "355" false))
