@@ -19,5 +19,11 @@
     final-configuration))
     
 
-(deftest test-355
-  (run-data-test "355" false))
+(defmacro create-conformance-test [number is-optional]
+  (let [testname (symbol (.concat "test-" (str number)))]
+  `(deftest ~testname
+     (run-data-test ~(str number) ~is-optional))))
+
+
+(create-conformance-test 355 false)
+(create-conformance-test 144 false)
