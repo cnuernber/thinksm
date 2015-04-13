@@ -10,9 +10,8 @@
   (let [subdir (if is-optional "optional" "mandatory")
         full-test-name (str/join [test-base-dir "/" subdir "/test" testname ".txml.ecma.scxml"])
         machine (load-scxml-file full-test-name)
-        context (create-context machine)
-        initial-context (assoc context :configuration (get-initial-configuration context))
-        final-context (step-state-machine initial-context)
+        context (create-and-initialize-context machine)
+        final-context (step-until-stable context)
         final-configuration (:configuration final-context)]
     (is (:pass (:set final-configuration)))
     (is (not (:fail (:set final-configuration))))

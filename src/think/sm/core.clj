@@ -1,7 +1,8 @@
 (ns think.sm.core
   (:require [clojure.xml :as xml]
             [clojure.string :as str])
-  (:import (java.io FileInputStream File)))
+  (:import (java.io FileInputStream File)
+           (java.util ArrayDeque)))
 
 
 (declare parse-state-child 
@@ -35,24 +36,38 @@
         new-children (conj (:children parent) new-state)]
     (assoc parent :children new-children)))
 
-(defn space-delimited-string-to-keyword-array [data]
-  (mapv keyword (str/split data #" ")))
 
+(defn space-delimited-string-to-keyword-array [data]
+  (if data
+    (mapv keyword (str/split data #" "))
+    []))
+
+(defn space-delimited-string-to-array [data]
+  (if data
+    (vec (str/split data #" "))
+    []))
+  
 
 (defn parse-transition [parent node]
   (let [type :transition
         target-list (space-delimited-string-to-keyword-array (:target (:attrs node)))
+        event-list (space-delimited-string-to-array (:event (:attrs node)))
         transition-content (reduce parse-executable-content [] (:content node))
-        new-transition { :type type :content transition-content :targets target-list :parent (:id parent) :id (:id parent) }
+        new-transition { :type type :content transition-content :targets target-list 
+                        :parent (:id parent) :id (:id parent) :events event-list }
         new-transitions (conj (:transitions parent) new-transition)]
     (assoc parent :transitions new-transitions)))
 
 (defn parse-log [node]
   { :type :log :label (:label (:attrs node)) :expr (:expr (:attrs node)) }) 
 
+(defn parse-raise [node]
+  { :type :raise :event (:event (:attrs node)) })
+
 (defn parse-executable-content [content node]
   (let [item (case (:tag node)
                :log (parse-log node)
+               :raise (parse-raise node)
                (throw (Throwable. "Unrecognized executable content")))]
     (conj content item)))
                 
@@ -78,11 +93,6 @@
 
 (defn parse-xml-scxml [node]
   (reduce parse-state-child {:type :scxml :id :scxml_root :children [] :datamodel (keyword (:attrs node)) } (:content node)))
-
-;returns a pure machine.  Note that you still need context to execute this machine.
-(defn load-scxml-file [fname]
-  (let [xml-dom (xml/parse (FileInputStream. fname))]
-    (parse-xml-scxml xml-dom)))
 
 (defn create-ordered-set [] { :set #{} :vec [] } )
 
@@ -156,7 +166,8 @@
      :configuration (add-to-ordered-set (create-ordered-set) machine);which states are we in
      :history {} ;saved history from exit from history states
      :datamodel {} 
-     :id-state-map id-state-map } ))
+     :id-state-map id-state-map 
+     :events (clojure.lang.PersistentQueue/EMPTY) } ))
 
 (defn get-parent-state [state-or-transition context]
   ((:parent state-or-transition) (:id-state-map context)))
@@ -348,7 +359,28 @@ then that node is not a child of this parent"
 (defn enter-state-sort [state-seq]
   (sort-by :document-order state-seq))
 
-(defn execute-content [content-list-list context])
+(defmulti execute-specific-content :type)
+
+
+(defmethod execute-specific-content :log [item context]
+  (println (:expr item))
+  context)
+
+
+(defmethod execute-specific-content :raise [item context]
+  (let [old-events (:events context)
+        new-events (conj old-events (:event item))]
+    (assoc context :events new-events)))
+
+
+(defn execute-content [content-list context]
+  (reduce (fn [context content-or-list]
+             (if (or (seq? content-or-list)
+                    (vector? content-or-list))
+              (execute-content content-or-list context)
+              (execute-specific-content content-or-list context)))
+          context
+          content-list))
 
 (defn get-initial-transition [state]
   (let [transition (:initial state)]
@@ -359,33 +391,52 @@ then that node is not a child of this parent"
           { :parent (:id state) :content [] :type :transition :targets [(:id first-child)] }
           nil)))))
 
-(defn enter-states[transitions context]
+(defn execute-onentry-content[context state]
+  (let [on-entry-content (:onentry state)]
+    (if on-entry-content
+      (execute-content on-entry-content context)
+      context)))
+
+(defn execute-default-entry-content[context state states-for-default-entry]
+  (if (in-ordered-set? states-for-default-entry state)
+    (execute-content (:content (get-initial-transition state)) context)
+    context))
+
+(defn execute-default-history-content[context state default-history-content]
+  (let [history-content ((:id state) default-history-content)]
+    (if history-content
+      (execute-content history-content context)
+      context)))
+
+
+(defn do-enter-state[context state states-for-default-entry default-history-content]
+  (let [new-context (-> context
+                        (execute-onentry-content state)
+                        (execute-default-entry-content state states-for-default-entry)
+                        (execute-default-history-content state default-history-content))
+        configuration (add-to-ordered-set (:configuration new-context) state)]
+    (assoc new-context :configuration configuration)))
+
+
+(defn enter-states[context transitions]
   "Enter the states indicated by this list of transitions.  Return a new configuration ordered set"
   (let [enter-args [(create-ordered-set) (create-ordered-set) {}]
         enter-args (compute-entry-set transitions enter-args context)
         [states-to-enter states-for-default-entry default-history-content] enter-args
         ordered-enter-states (enter-state-sort (:vec states-to-enter))
-        configuration (reduce (fn [configuration state]
-                                (execute-content (:onentry state) context)
-                                (when (in-ordered-set? states-for-default-entry state)
-                                  (execute-content (:content (get-initial-transition state))))
-                                (when ((:id state) default-history-content)
-                                  (execute-content ((:id state) default-history-content) context))
-                                (add-to-ordered-set configuration state))
-                              (:configuration context)
+        final-context (reduce (fn [context state]
+                                (do-enter-state context state states-for-default-entry default-history-content))
+                              context
                               ordered-enter-states)
-        ordered-configuration (enter-state-sort (:vec configuration))]
-    ;we keep configuration sorted in document order.  This allows some algorithmic
-    ;simplifications and is just logical to look at.
-    (assoc configuration :vec (vec ordered-configuration))))
-        
-                           
+        configuration (:configuration final-context)
+        ordered-configuration (vec (enter-state-sort (:vec configuration)))]
+    final-context ))
                 
 
 (defn get-initial-configuration [context]
   (let [scxml (:machine context)
         transition (get-initial-transition scxml)]
-    (enter-states [transition] context)))
+    (enter-states context [transition])))
 
 (defn is-atomic-state [state]
   (and (= (:type state)
@@ -402,7 +453,32 @@ then that node is not a child of this parent"
 
 ;since we don't support event or conditions yet...
 (defn active-eventless-transition? [transition context]
-  true)
+  (let [event-list (:event transition)
+        event-count (if event-list (count event-list) 0)]
+    (= event-count 0)))
+
+(defn event-name-and-transition-event-spec-match? [^String event-name ^String event-spec]
+  (let [name-len (if (nil? event-name) 0 (.length event-name))
+        spec-len (.length event-spec)]
+    (if (or (= 0 spec-len)
+            (= 0 name-len))
+      false
+      (if (= event-spec "*")
+        true
+        (let [spec-general (.endsWith event-spec ".*")
+              event-spec (if spec-general (.substring event-spec 0 (- spec-len 2)) event-spec)
+              spec-len (.length event-spec)
+              sub-match (.startsWith event-name event-spec)]
+          (if (= name-len spec-len)
+            true
+            (= \. (.charAt event-name spec-len))))))))
+
+
+(defn active-evented-transition?[transition event-name context]
+  (not-empty (filter 
+              (fn [event-spec] (event-name-and-transition-event-spec-match? event-name event-spec))
+              (:events transition))))
+
 
 (defn get-active-transition[state-seq filterp]
   (let [transitions (state-seq-to-transition-seq state-seq)
@@ -466,6 +542,9 @@ conflict with each other at this point forcing a further filtering step"
 (defn select-eventless-transitions [context]
   (select-transitions context (fn [transition] (active-eventless-transition? transition context))))
 
+(defn select-evented-transitions [context event-name]
+  (select-transitions context (fn [transition] (active-evented-transition? transition event-name context))))
+
 
 (defn get-descendants [parents children]
   "if a child is a descendant of any of the parents then return the child
@@ -485,25 +564,37 @@ fit criteria"
     (reverse descendants)))
 
 
-(defn exit-states[transitions context]
+(defn exit-states[context transitions]
   "exit states returning a new configuration"
   (let [states-to-exit (compute-exit-set transitions context)]
-    (reduce (fn [configuration state]
-              (execute-content (:onexit state) context)
-              ;note that the state is still in the configuration when its content is executed
-              (remove-from-ordered-set configuration state))
-            (:configuration context)
+    (reduce (fn [context state]
+              (let [context (execute-content (:onexit state) context)
+                    configuration (remove-from-ordered-set (:configuration context) state)]
+                (assoc context :configuration configuration)))
+            context
             states-to-exit)))
-                
-    
-(defn microstep [transitions context]
-  (let [configuration (exit-states transitions context)
-        transition-content (map :content transitions)
-        _ (reduce (fn [_ content] (execute-content content context) []) [] transition-content)
-        context (assoc context :configuration configuration)
-        configuration (enter-states transitions context)]
-    (assoc context :configuration configuration)))
 
+
+(defn execute-transition-content [context transitions]
+  (reduce (fn [context content] (execute-content content context)) context (map :content transitions)))
+
+
+(defn microstep [context transitions]
+  (-> context
+      (exit-states transitions)
+      (execute-transition-content transitions)
+      (enter-states transitions)))
+
+
+;returns a pure machine.  Note that you still need context to execute this machine.
+(defn load-scxml-file [fname]
+  (let [xml-dom (xml/parse (FileInputStream. fname))]
+    (parse-xml-scxml xml-dom)))
+
+
+(defn create-and-initialize-context [loaded-scxml]
+  (-> (create-context loaded-scxml)
+      (get-initial-configuration)))            
     
 ;step the state machine returning a new context with an
 ;update configuration.
@@ -511,6 +602,22 @@ fit criteria"
 (defn step-state-machine [context]
   (let [eventless (select-eventless-transitions context)]
     (if (not-empty eventless)
-      (microstep eventless context)
-      context)))
-      
+      (microstep context eventless)
+      (let [events (:events context)
+            next-event (first events)]
+        (if next-event
+          (let [events (pop events)
+                transitions (select-evented-transitions context next-event)
+                context (if (not-empty transitions) (microstep transitions) context)]
+            (assoc context :events events))
+          context)))))
+
+(defn state-machine-stable? [context]
+  (not (or (not-empty (select-eventless-transitions context))
+           (not-empty (select-evented-transitions context (pop (:events context)))))))
+
+(defn step-until-stable [context]
+  (loop [context context]
+    (if (state-machine-stable? context)
+      context
+      (recur (step-state-machine context)))))
