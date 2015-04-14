@@ -66,8 +66,8 @@
 (defn transform-data-item! [data-dir item]
   (let [rel-out-path (:file item)
         output-result-file-path (.toString (Paths/get data-dir (into-array String [rel-out-path])))
-        output-transformed (str/join [output-result-file-path ".ecma.scxml"])
-        xslt-path (.toString (Paths/get data-dir (into-array String ["confEcma.xsl"])))
+        output-transformed (str/join [output-result-file-path ".clj.scxml"])
+        xslt-path (.toString (Paths/get data-dir (into-array String ["confClj.xsl"])))
         transform-args [(.concat "-s:" output-result-file-path) (.concat "-xsl:" xslt-path) (.concat "-o:" output-transformed)]]
     (when (not (.endsWith output-result-file-path ".txt"))
       (try

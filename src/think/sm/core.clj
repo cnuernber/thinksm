@@ -1,6 +1,7 @@
 (ns think.sm.core
   (:require [clojure.xml :as xml]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [think.sm.executable :as exe])
   (:import (java.io FileInputStream File)
            (java.util ArrayDeque)))
 
@@ -58,19 +59,8 @@
         new-transitions (conj (:transitions parent) new-transition)]
     (assoc parent :transitions new-transitions)))
 
-(defn parse-log [node]
-  { :type :log :label (:label (:attrs node)) :expr (:expr (:attrs node)) }) 
-
-(defn parse-raise [node]
-  { :type :raise :event (:event (:attrs node)) })
-
 (defn parse-executable-content [content node]
-  (let [item (case (:tag node)
-               :log (parse-log node)
-               :raise (parse-raise node)
-               (throw (Throwable. "Unrecognized executable content")))]
-    (conj content item)))
-                
+  (conj content (exe/parse-executable-content node)))                
         
  (defn parse-entry-exit [parent node]
    (let [dest (:tag node)
@@ -88,7 +78,7 @@
         (if (or (= type :onentry)
                 (= type :onexit))
           (parse-entry-exit state child)
-          (throw (Throwable. "Unrecognized state child")))))))
+          (throw (Throwable. (str "Unrecognized state child " (:tag child)))))))))
                    
 
 (defn parse-xml-scxml [node]
@@ -359,26 +349,12 @@ then that node is not a child of this parent"
 (defn enter-state-sort [state-seq]
   (sort-by :document-order state-seq))
 
-(defmulti execute-specific-content :type)
-
-
-(defmethod execute-specific-content :log [item context]
-  (println (:expr item))
-  context)
-
-
-(defmethod execute-specific-content :raise [item context]
-  (let [old-events (:events context)
-        new-events (conj old-events (:event item))]
-    (assoc context :events new-events)))
-
-
 (defn execute-content [content-list context]
   (reduce (fn [context content-or-list]
              (if (or (seq? content-or-list)
                     (vector? content-or-list))
               (execute-content content-or-list context)
-              (execute-specific-content content-or-list context)))
+              (exe/execute-specific-content content-or-list context)))
           context
           content-list))
 
