@@ -68,6 +68,6 @@ If we get to s01111 we succeed, if any other state, failure.  --><scxml xmlns="h
 </state>
 </state>
  
-<final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
-<final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+<final id="pass"><onentry><log label="Outcome" expr="&#34;pass&#34;"/></onentry></final>
+<final id="fail"><onentry><log label="Outcome" expr="&#34;fail&#34;"/></onentry></final>
 </scxml>

@@ -10,8 +10,8 @@ test552.txt to have a value that's legal for the datamodel in question --><scxml
        <transition target="fail"/>
    </state>
 
-   <final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
-   <final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+   <final id="pass"><onentry><log label="Outcome" expr="&#34;pass&#34;"/></onentry></final>
+   <final id="fail"><onentry><log label="Outcome" expr="&#34;fail&#34;"/></onentry></final>
    
 
 

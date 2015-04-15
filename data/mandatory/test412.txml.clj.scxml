@@ -46,7 +46,7 @@ and before the onentry handler of the child states.  Event1, event2, and event3 
   
 </state> <!-- end s0 -->
  
-<final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
-<final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+<final id="pass"><onentry><log label="Outcome" expr="&#34;pass&#34;"/></onentry></final>
+<final id="fail"><onentry><log label="Outcome" expr="&#34;fail&#34;"/></onentry></final>
 
 </scxml>

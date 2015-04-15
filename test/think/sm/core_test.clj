@@ -8,13 +8,13 @@
 (defn run-data-test [testname is-optional]
   (testing (.concat "scxml conformance test: " testname))
   (let [subdir (if is-optional "optional" "mandatory")
-        full-test-name (str/join [test-base-dir "/" subdir "/test" testname ".txml.ecma.scxml"])
+        full-test-name (str/join [test-base-dir "/" subdir "/test" testname ".txml.clj.scxml"])
         machine (load-scxml-file full-test-name)
         context (create-and-initialize-context machine)
         final-context (step-until-stable context)
         final-configuration (:configuration final-context)]
-    (is (:pass (:set final-configuration)))
-    (is (not (:fail (:set final-configuration))))
+    (is (and (:pass (:set final-configuration))
+             (not (:fail (:set final-configuration)))))
     final-configuration))
     
 

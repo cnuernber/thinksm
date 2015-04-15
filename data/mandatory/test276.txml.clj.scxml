@@ -9,8 +9,8 @@ The child returns event1 if var1 has value 1, event0 if it has default value 0. 
        <transition event="event0" target="fail"/>
    </state>
 
-   <final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
-   <final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+   <final id="pass"><onentry><log label="Outcome" expr="&#34;pass&#34;"/></onentry></final>
+   <final id="fail"><onentry><log label="Outcome" expr="&#34;fail&#34;"/></onentry></final>
    
 
 

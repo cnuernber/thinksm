@@ -22,7 +22,7 @@
 <xsl:template match="conf:pass">
  <final xmlns="http://www.w3.org/2005/07/scxml" id="pass">
    <onentry>
-     <log label="Outcome" expr="'pass'"/>
+     <log label="Outcome" expr='"pass"'/>
    </onentry>
  </final>
 </xsl:template>
@@ -36,7 +36,7 @@
 <xsl:template match="conf:fail">
  <final xmlns="http://www.w3.org/2005/07/scxml" id="fail">
    <onentry>
-    <log label="Outcome" expr="'fail'"/>
+    <log label="Outcome" expr='"fail"'/>
    </onentry>
 </final>
 </xsl:template>

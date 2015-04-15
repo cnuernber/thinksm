@@ -83,3 +83,7 @@
       (transform-data-item! data-dir item)
       (when next
         (recur next (rest items))))))
+
+(defn run-conversion []
+  (let [parsed (parse-test-spec-to-map-data "data")]
+    (transform-data! "data" parsed)))

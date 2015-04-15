@@ -1,7 +1,8 @@
 (ns think.sm.core
   (:require [clojure.xml :as xml]
             [clojure.string :as str]
-            [think.sm.executable :as exe])
+            [think.sm.executable :as exe]
+            [think.sm.datamodel :as dm])
   (:import (java.io FileInputStream File)
            (java.util ArrayDeque)))
 
@@ -33,7 +34,7 @@
         id-str (:id (:attrs node))
         id (if id-str (keyword id-str) nil)
         new-vestigial-state { :type type :id id :children [] :onentry [] :onexit [] :transitions [] :history [] :parent (:id parent) }
-        new-state (reduce parse-state-child new-vestigial-state (:content node))
+        new-state (reduce (fn [state child] (parse-state-child child state)) new-vestigial-state (:content node))
         new-children (conj (:children parent) new-state)]
     (assoc parent :children new-children)))
 
@@ -55,7 +56,8 @@
         event-list (space-delimited-string-to-array (:event (:attrs node)))
         transition-content (reduce parse-executable-content [] (:content node))
         new-transition { :type type :content transition-content :targets target-list 
-                        :parent (:id parent) :id (:id parent) :events event-list }
+                        :parent (:id parent) :id (:id parent) :events event-list 
+                        :cond (:cond (:attrs node))}
         new-transitions (conj (:transitions parent) new-transition)]
     (assoc parent :transitions new-transitions)))
 
@@ -67,22 +69,48 @@
          content (reduce parse-executable-content [] (:content node))
          new-entry (conj (dest parent) content)]
      (assoc parent dest new-entry)))
-      
 
-(defn parse-state-child [state child]
-  (let [type (:tag child)]
-    (if (is-state-type type)
-      (parse-state state child)
-      (if (= type :transition)
-        (parse-transition state child )
-        (if (or (= type :onentry)
-                (= type :onexit))
-          (parse-entry-exit state child)
-          (throw (Throwable. (str "Unrecognized state child " (:tag child)))))))))
+(defmulti parse-state-child :tag)
+
+(defmethod parse-state-child :state [child state]
+  (parse-state state child))
+
+(defmethod parse-state-child :parallel [child state]
+  (parse-state state child))
+
+(defmethod parse-state-child :final [child state]
+  (parse-state state child))
+
+(defmethod parse-state-child :transition [child state]
+  (parse-transition state child))
+
+(defmethod parse-state-child :onentry [child state]
+  (parse-entry-exit state child))
+
+(defmethod parse-state-child :onexit [child state]
+  (parse-entry-exit state child))
+
+(defmethod parse-state-child :datamodel [child state]
+  (let [data-defs (reduce (fn [defs node]
+                            (conj defs {:type :data 
+                                        :id (keyword (:id (:attrs node))) 
+                                        :expr (:expr (:attrs node)) }))
+                          []
+                          (:content child))]
+    (assoc state :datamodel data-defs)))
+
+(defmethod parse-state-child :default [child state]
+  (throw (Throwable. (str "Unrecognized state child " child))))
                    
 
 (defn parse-xml-scxml [node]
-  (reduce parse-state-child {:type :scxml :id :scxml_root :children [] :datamodel (keyword (:attrs node)) } (:content node)))
+  (reduce (fn [scxml child]
+            (parse-state-child child scxml))
+          {:type :scxml :id :scxml_root :children [] 
+           :datamodel-type (keyword (:datamodel (:attrs node))) 
+           :initial (keyword (:initial (:attrs node)))
+           } 
+          (:content node)))
 
 (defn create-ordered-set [] { :set #{} :vec [] } )
 
@@ -132,6 +160,36 @@
 (defn dfs-state-walk [machine-node]
   "Returns a sequence of a depth first walk"
   (tree-seq has-state-children? state-children machine-node))
+
+
+(defn walkable-item? [item]
+  (or (vector? item)
+      (seq? item)
+      (:type item)))
+
+(defn walk-item [item-or-seq context walker]
+  "walk the machine expecting walker to produce both new machine nodes
+and new context data.  
+Walker returns a vector containing first the new machine node and 
+second the new context"
+  (if (or (vector? item-or-seq)
+          (seq? item-or-seq))
+    (reduce (fn [[item-vec context] item]
+              (let [[new-item context] (if (walkable-item? item)
+                                         (walk-item item context walker)
+                                         [item context])]
+                [(conj item-vec new-item) context]))
+            [[] context]
+            item-or-seq)
+    (let [[item context] (walker item-or-seq context)]
+      (reduce (fn [[item context] key]
+                (let [entry (key item)]
+                  (if (walkable-item? entry)
+                    (let [[new-entry context] (walk-item entry context walker)]
+                      [(assoc item key new-entry) context])
+                    [item context])))
+              [item context]
+              (keys item)))))
 
 ;This is done as a second step so that we can create states outside the xml
 ;context and then when creating the state machine executable context things get
@@ -360,12 +418,14 @@ then that node is not a child of this parent"
 
 (defn get-initial-transition [state]
   (let [transition (:initial state)]
-    (if transition
+    (if (= (:type transition) :transition)
       transition
-      (let [first-child (first (:children state))]
-        (if first-child
-          { :parent (:id state) :content [] :type :transition :targets [(:id first-child)] }
-          nil)))))
+      (if (keyword? transition)
+        { :parent (:id state) :content [] :type :transition :targets [transition] }
+        (let [first-child (first (:children state))]
+          (if first-child
+            { :parent (:id state) :content [] :type :transition :targets [(:id first-child)] }
+            nil))))))
 
 (defn execute-onentry-content[context state]
   (let [on-entry-content (:onentry state)]

@@ -22,6 +22,6 @@ inspection.) --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http:
 
 
 <final id="final"/>
-<final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+<final id="fail"><onentry><log label="Outcome" expr="&#34;fail&#34;"/></onentry></final>
 
 </scxml>

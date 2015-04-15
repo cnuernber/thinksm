@@ -18,7 +18,7 @@ able to send an event to itself using its own session ID as the target --><scxml
 </state>
 
 
-   <final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
-   <final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+   <final id="pass"><onentry><log label="Outcome" expr="&#34;pass&#34;"/></onentry></final>
+   <final id="fail"><onentry><log label="Outcome" expr="&#34;fail&#34;"/></onentry></final>
 
 </scxml>

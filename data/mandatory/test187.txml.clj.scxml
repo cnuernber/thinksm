@@ -27,7 +27,7 @@ parent session, should not receive childToParent. If it does, we fail.  Otherwis
     <transition event="timeout" target="pass"/>
 </state>
 
-   <final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
-   <final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+   <final id="pass"><onentry><log label="Outcome" expr="&#34;pass&#34;"/></onentry></final>
+   <final id="fail"><onentry><log label="Outcome" expr="&#34;fail&#34;"/></onentry></final>
 
 </scxml>

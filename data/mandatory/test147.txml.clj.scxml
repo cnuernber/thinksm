@@ -24,7 +24,7 @@ Only one event should be raised, and it should be bar --><scxml xmlns="http://ww
  </state>
 
   
-   <final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
-   <final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+   <final id="pass"><onentry><log label="Outcome" expr="&#34;pass&#34;"/></onentry></final>
+   <final id="fail"><onentry><log label="Outcome" expr="&#34;fail&#34;"/></onentry></final>
 
 </scxml>
