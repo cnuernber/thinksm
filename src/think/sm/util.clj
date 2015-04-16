@@ -63,3 +63,18 @@ second the new context"
                                               nil))
                                           map-keys))]
     (apply assoc retval (flatten attr-key-value-pairs))))
+
+(defn parse-time-val [^String time-str]
+  "positive double number immediately followed by either
+s or ms.  Returns integer milliseconds"
+  (try
+    (let [suffix (if (.endsWith time-str "ms")
+                   "ms"
+                   "s")
+          time-str (.substring time-str 0 (- (.length time-str) (.length suffix)))
+          value (Double/parseDouble time-str)
+          value (if (= "s" suffix) (* value 1000) value)]
+      (int value))
+    (catch Exception e (println (str e)) 0)))
+      
+

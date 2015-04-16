@@ -4,7 +4,7 @@
   
 <state id="s0">
   <onentry>
-   <send event="event2" delayexpr="'1s'"/>
+   <send event="event2" delayexpr="&#34;1s&#34;"/>
    <send event="event1"/>
     </onentry>
     

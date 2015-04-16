@@ -37,7 +37,8 @@ that corresponds to the integers in the new machine"
 (defn output-dm-prefix[var-vec]
   (println 
 "(fn [context]
-  (let [datamodel (:datamodel context)")
+  (let [datamodel (:datamodel context)
+       event (:event context)")
   (doseq [var-name var-vec]
     (println (str
 "      " (name var-name) " (" var-name " datamodel)")))

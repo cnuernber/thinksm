@@ -176,19 +176,21 @@
         
 
 
-(defn create-context [machine dm-context]
-  ;run through machine creating map from id to state
-  ;and setting document order
-  (let [[machine state-count] (set-document-order machine 1)
-        id-state-map (reduce (fn [map node] (assoc map (:id node) node)) {} (dfs-state-walk machine))]
-    { :machine machine 
-     :configuration (add-to-ordered-set (create-ordered-set) machine);which states are we in
-     :history {} ;saved history from exit from history states
-     :datamodel {} 
-     :id-state-map id-state-map 
-     :visited-states #{}
-     :events (clojure.lang.PersistentQueue/EMPTY)
-     :dm-context dm-context } ))
+(defn create-context 
+  ([machine dm-context current-time]
+   (let [[machine state-count] (set-document-order machine 1)
+         id-state-map (reduce (fn [map node] (assoc map (:id node) node)) {} (dfs-state-walk machine))]
+     { :machine machine 
+      :configuration (add-to-ordered-set (create-ordered-set) machine);which states are we in
+      :history {} ;saved history from exit from history states
+      :datamodel {} 
+      :id-state-map id-state-map 
+      :visited-states #{}
+      :events (clojure.lang.PersistentQueue/EMPTY)
+      :dm-context dm-context 
+      :current-time current-time } ))
+  ([machine dm-context]
+     (create-context machine dm-context (System/currentTimeMillis))))
 
 (defn get-parent-state [state-or-transition context]
   ((:parent state-or-transition) (:id-state-map context)))
@@ -632,29 +634,40 @@ fit criteria"
 (defn create-and-initialize-context [loaded-scxml]
   (let [[loaded-scxml dm-context] (dm/create-datamodel-context loaded-scxml)]
     (-> (create-context loaded-scxml dm-context)
-        (get-initial-configuration))))  
+        (get-initial-configuration))))
     
 ;step the state machine returning a new context with an
 ;update configuration.
 
-(defn step-state-machine [context]
-  (let [eventless (select-eventless-transitions context)]
-    (if (not-empty eventless)
-      (microstep context eventless)
-      (let [events (:events context)
-            next-event (first events)]
-        (if next-event
-          (let [events (pop events)
-                transitions (select-evented-transitions context next-event)
-                context (assoc context :events events)
-                context (if (not-empty transitions) (microstep context transitions) context)]
-            context)
-          context)))))
+(defn get-event-name [event]
+  (if (string? event)
+    event
+    (:name event)))
+
+(defn step-state-machine 
+  ([context current-time]
+   (let [context (exe/update-delayed-events (assoc context :event nil) current-time)
+         eventless (select-eventless-transitions context)]
+     (if (not-empty eventless)
+       (microstep context eventless)
+       (let [events (:events context)
+             next-event (first events)]
+         (if next-event
+           (let [events (pop events)
+                 event-name (get-event-name next-event)
+                 transitions (select-evented-transitions context event-name)
+                 context (assoc context :events events :event next-event)
+                 context (if (not-empty transitions) (microstep context transitions) context)]
+             context)
+           context)))))
+  ([context]
+   (step-state-machine context (System/currentTimeMillis))))
 
 (defn state-machine-stable? [context]
   (not (or (not-empty (select-eventless-transitions context))
            (and (first (:events context))
-                (not-empty (select-evented-transitions context (first (:events context))))))))
+                (not-empty (select-evented-transitions context (get-event-name (first (:events context))))))
+           (not-empty (:delayed-events context)))))
 
 (defn step-until-stable [context]
   (loop [context context]

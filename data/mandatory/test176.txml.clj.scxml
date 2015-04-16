@@ -14,7 +14,7 @@ aParam in event1 is 2 so that var2 gets set to 2, success, otherwise failure  --
     </onentry>
     
   <transition event="event1" target="s1">
-  <assign location="Var2" expr="_event.data.aParam"/>
+  <assign location="Var2" expr="(:aParam (:data event))"/>
   </transition>
   <transition event="*" target="fail"/>
  </state>

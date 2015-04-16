@@ -6,7 +6,7 @@ raised in another session, but the spec doesn't define any way to refer to an ev
    
 <state id="s0" initial="s01">
   <onentry>
-    <send event="timeout" delayexpr="'2s'"/>
+    <send event="timeout" delayexpr="&#34;2s&#34;"/>
     </onentry>
   <invoke type="scxml">
     <content>
@@ -18,8 +18,8 @@ raised in another session, but the spec doesn't define any way to refer to an ev
          <scxml initial="sub0" version="1.0" datamodel="clojure">
            <state id="sub0">
             <onentry>
-             <send event="event1" id="foo" delayexpr="'1s'"/>
-              <send event="event2" delayexpr="'1.5s'"/>
+             <send event="event1" id="foo" delayexpr="&#34;1s&#34;"/>
+              <send event="event2" delayexpr="&#34;1.5s&#34;"/>
               <send target="#_parent" event="childToParent"/>
               </onentry>
  

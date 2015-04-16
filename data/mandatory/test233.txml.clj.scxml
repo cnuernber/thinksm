@@ -22,7 +22,7 @@ the transtitions.   --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf
          </scxml>
      </content>
         <finalize>
-      <assign location="Var1" expr="_event.data.aParam"/>
+      <assign location="Var1" expr="(:aParam (:data event))"/>
       </finalize>
       </invoke>
       

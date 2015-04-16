@@ -14,7 +14,7 @@ at least we can check that the event name and included data are the same as we s
  
  
   <transition event="event1" target="s1">
-     <assign location="Var1" expr="_event.data.aParam"/>
+     <assign location="Var1" expr="(:aParam (:data event))"/>
      </transition>
   <transition event="*" target="fail"/>
  </state>

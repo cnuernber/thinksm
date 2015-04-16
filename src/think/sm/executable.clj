@@ -17,6 +17,9 @@
    :expr (:expr (:attrs node)) })
 
 
+(defn parse-send-param [node]
+  { :type :param :name (keyword (:name (:attrs node))) :expr (:expr (:attrs node)) })
+
 
 (def send-attributes
   { :event :string
@@ -32,7 +35,9 @@
    :namelist :string-list })
 
 (defmethod parse-executable-content :send [node]
-  (util/parse-attributes node { :type :send } send-attributes))
+  (let [children (map parse-send-param (:content node))]
+    (util/parse-attributes node { :type :send :children children } send-attributes)))
+    
 
 (defn parse-executable-content-children [node]
   (reduce (fn [children node-child]
@@ -131,17 +136,62 @@
         (dm/execute-expression context expr)
         nil))))
  
+(defn add-delayed-event[context event delay]
+  (let [delayed-events (:delayed-events context)
+        delayed-events (conj delayed-events { :delay delay :start-time (:current-time context) :event event })]
+    (assoc context :delayed-events delayed-events)))
+
+(defn get-delayed-event-time[delayed-evt time]
+  (let [current-delay (- time (:start-time delayed-evt))
+        desired-delay (:delay delayed-evt)]
+    (- desired-delay current-delay)))
+
+(defn is-delayed-event-ready?[delayed-evt time]
+  (>= 0 (get-delayed-event-time delayed-evt time)))
+    
+
+(defn update-delayed-events [context current-time]
+  (let [time current-time
+        events-to-signal (filter (fn [delayed] 
+                                   (is-delayed-event-ready? delayed time)) 
+                                 (:delayed-events context))]
+    (if (not-empty events-to-signal)
+      (let [new-delayed-events (filter (fn [delayed] 
+                                         (not(is-delayed-event-ready? delayed time))) 
+                                       (:delayed-events context))
+            events-to-signal (sort-by identity (fn [evt evt2] 
+                                                 (< (get-delayed-event-time evt time) 
+                                                    (get-delayed-event-time evt2 time))) 
+                                      events-to-signal)
+            event-names (map :event events-to-signal)
+            events (apply conj (:events context) event-names)]
+        (assoc context :delayed-events new-delayed-events :events events :current-time current-time))
+      (assoc context :current-time current-time ))))
+
+(defn execute-send-param [param context]
+  [ (:name param) (dm/execute-expression context (:expr param)) ])
+        
+(defn build-send-event [item context]
+  (let [evt-name (get-item-or-item-expr item :event :eventexpr context)
+        param-list (mapcat (fn [param] (execute-send-param param context)) (:children item))]
+    (if (not-empty param-list)
+      (assoc {} :name evt-name :data (apply assoc {} param-list))
+      evt-name)))
 
 (defmethod execute-specific-content :send [item context]
   (let [target (get-item-or-item-expr item :target :targetexpr context)]
-    (if (and target
-             (not (= "#_internal" target)))
+    (if (and target (not (= "#_internal" target)))
       (sling/throw+ (assoc context 
                            :errormsg (str "Send target unsupported as of this time: " target) 
                            :errorevent "error.send" ))
-      (let [event (get-item-or-item-expr item :event :eventexpr context)]
-        (if event
-          (assoc context :events (conj (:events context) event))
+      (let [event (build-send-event item context)
+            delay-str (get-item-or-item-expr item :delay :delayexpr context)
+            delay-ms (if delay-str (util/parse-time-val delay-str) 0)]
+        (if (not event)
           (sling/throw+ (assoc context
-                               :errormsg (str "Send target unsupported as of this time") 
-                               :errorevent "error.send" )))))))
+                               :errormsg (str "Send with null event") 
+                               :errorevent "error.send" ))
+          (if (= 0 delay-ms)
+            (assoc context :events (conj (:events context) event))
+            (add-delayed-event context event delay-ms)))))))
+ 

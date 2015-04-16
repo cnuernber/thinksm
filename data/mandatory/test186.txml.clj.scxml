@@ -8,14 +8,14 @@ in the interval.)  If var2 ends up == 1, we pass.  Otherwise we fail  --><scxml 
   
 <state id="s0">
   <onentry>
-   <send event="event1" delayexpr="'1s'">
+   <send event="event1" delayexpr="&#34;1s&#34;">
      <param name="aParam" expr="Var1"/>
      </send>
    <assign location="Var1" expr="2"/>
     </onentry>
     
   <transition event="event1" target="s1">
-    <assign location="Var2" expr="_event.data.aParam"/>
+    <assign location="Var2" expr="(:aParam (:data event))"/>
     </transition>
   <transition event="*" target="fail"/>
  </state>

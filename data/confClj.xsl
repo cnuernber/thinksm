@@ -206,7 +206,7 @@
 
   <!-- returns the value of the specified item in  _event.data  -->
   <xsl:template match="//@conf:eventDataFieldValue">
-    <xsl:attribute name="expr">_event.data.<xsl:value-of select="."/></xsl:attribute>
+    <xsl:attribute name="expr">(:<xsl:value-of select="."/> (:data event))</xsl:attribute>
   </xsl:template>
 
   <!-- returns the value of a KVP specified by <param> from  _event.data  -->
@@ -248,7 +248,7 @@
   <!-- computes a delayexpr based on the value passed in.  this lets platforms determine how long to delay timeout
        events which cause the test to fail.  The default value provided here is pretty long -->
   <xsl:template match="//@conf:delay">
-    <xsl:attribute name="delayexpr">'<xsl:value-of select="."/>s'</xsl:attribute>
+    <xsl:attribute name="delayexpr">"<xsl:value-of select="."/>s"</xsl:attribute>
   </xsl:template>
 
   <!--  the specified variable is used as idlocation -->
