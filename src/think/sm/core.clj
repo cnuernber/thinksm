@@ -474,11 +474,16 @@ then that node is not a child of this parent"
 (defn state-seq-to-transition-seq [state-seq]
   (mapcat :transitions state-seq))
 
+(defn is-active-transition[transition context]
+  (if (:cond transition)
+    (dm/execute-expression context (:cond transition))
+    true))
 ;since we don't support event or conditions yet...
 (defn active-eventless-transition? [transition context]
   (let [event-list (:event transition)
         event-count (if event-list (count event-list) 0)]
-    (= event-count 0)))
+    (and (= event-count 0)
+         (is-active-transition transition context))))
 
 (defn event-name-and-transition-event-spec-match? [^String event-name ^String event-spec]
   (let [name-len (if (nil? event-name) 0 (.length event-name))
@@ -498,9 +503,10 @@ then that node is not a child of this parent"
 
 
 (defn active-evented-transition?[transition event-name context]
-  (not-empty (filter 
-              (fn [event-spec] (event-name-and-transition-event-spec-match? event-name event-spec))
-              (:events transition))))
+  (and (is-active-transition transition context)
+       (not-empty (filter 
+                   (fn [event-spec] (event-name-and-transition-event-spec-match? event-name event-spec))
+                   (:events transition)))))
 
 
 (defn get-active-transition[state-seq filterp]
