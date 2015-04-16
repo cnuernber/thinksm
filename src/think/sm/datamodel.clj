@@ -1,6 +1,5 @@
 (ns think.sm.datamodel
   (:require [think.sm.util :as util] ))
-
                     
 (defn scan-node-for-datamodel-code-walker[node context]
   "If the node contains cond or expr then we have code
@@ -8,7 +7,9 @@ we need to save into an array and place an integer in it's place"
   (let [[var-vec code-vec] context
         var-vec (if (= :data (:type node))
                   (conj var-vec (:id node))
-                  var-vec)]
+                  (if (= :foreach (:type node))
+                    (apply conj var-vec (filter identity (map node [:index :array :item])))
+                    var-vec))]
       
     (let [data-to-replace (first (filter identity (map (fn [keyword]
                                                          (if (keyword node)
@@ -27,7 +28,7 @@ we need to save into an array and place an integer in it's place"
   "returns a new tree with code replaced by integers
 and a context with a variable declaration vec and a code vec
 that corresponds to the integers in the new machine"
-  (util/walk-item node [[] []] scan-node-for-datamodel-code-walker))
+  (util/walk-item node [#{} []] scan-node-for-datamodel-code-walker))
 
 (defn output-dm-prefix[var-vec]
   (println 
@@ -44,7 +45,8 @@ that corresponds to the integers in the new machine"
 
 (defn dm-code-to-string [dm-context]
   (with-out-str
-    (let [[var-vec code-vec] dm-context]
+    (let [[var-vec code-vec] dm-context
+          var-vec (vec var-vec)]
       (println "[")
       (doseq [code-item code-vec]
         (output-dm-prefix var-vec)

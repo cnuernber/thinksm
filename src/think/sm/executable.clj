@@ -14,12 +14,15 @@
    :location (keyword (:location (:attrs node)))
    :expr (:expr (:attrs node)) })
 
-(defmethod parse-executable-content :if [node]
-  (let [stmt { :type :if :cond (:cond (:attrs node)) }
-        children (reduce (fn [children node-child]
+(defn parse-executable-content-children [node]
+  (reduce (fn [children node-child]
                            (conj children (parse-executable-content node-child)))
                          []
-                         (:content node))]
+                         (:content node)))
+
+(defmethod parse-executable-content :if [node]
+  (let [stmt { :type :if :cond (:cond (:attrs node)) }
+        children (parse-executable-content-children node)]
     (assoc stmt :children children)))
     
 
@@ -28,6 +31,14 @@
 
 (defmethod parse-executable-content :else [node]
   { :type :else })
+
+(defmethod parse-executable-content :foreach [node]
+  (let [attrs (:attrs node)
+        stmt {:type :foreach 
+              :item (keyword (:item attrs))
+              :index (keyword (:index attrs))
+              :array (keyword (:array attrs))}]
+    (assoc stmt :children (parse-executable-content-children node))))
 
 (defmethod parse-executable-content :default [node]
     (throw (Throwable. (str "Unrecognized executable content " (:tag node)))))
@@ -72,3 +83,22 @@
     (assoc context :datamodel datamodel)))
         
       
+(defmethod execute-specific-content :foreach [item context]
+  (let [item-var (:item item)
+        index-var (:index item)
+        array-var (:array item)
+        data-seq (array-var (:datamodel context))
+        children (:children item)]
+    (loop [context context
+           index 0
+           data-item (first data-seq)
+           data-seq (rest data-seq)]
+      (if data-item
+        (let [datamodel (assoc (:datamodel context) item-var data-item)
+              datamodel (if index-var (assoc datamodel index-var index) datamodel)
+              context (reduce (fn [context child]
+                                (execute-specific-content child context))
+                              (assoc context :datamodel datamodel)
+                              children)]
+          (recur context (inc index) (first data-seq) (rest data-seq)))
+        context))))

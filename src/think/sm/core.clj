@@ -92,11 +92,17 @@
 (defmethod parse-state-child :onexit [child state]
   (parse-entry-exit state child))
 
+(defn parse-keyword-attr-or-content [node keywd]
+  (let [retval (keywd (:attrs node))]
+    (if retval
+      retval
+      (apply str (:content node)))))
+
 (defmethod parse-state-child :datamodel [child state]
   (let [data-defs (reduce (fn [defs node]
                             (conj defs {:type :data 
                                         :id (keyword (:id (:attrs node))) 
-                                        :expr (:expr (:attrs node)) }))
+                                        :expr (parse-keyword-attr-or-content node :expr)}))
                           []
                           (:content child))]
     (assoc state :datamodel data-defs)))
@@ -482,8 +488,7 @@ then that node is not a child of this parent"
 (defn active-eventless-transition? [transition context]
   (let [event-list (:event transition)
         event-count (if event-list (count event-list) 0)]
-    (and (= event-count 0)
-         (is-active-transition transition context))))
+    (= event-count 0)))
 
 (defn event-name-and-transition-event-spec-match? [^String event-name ^String event-spec]
   (let [name-len (if (nil? event-name) 0 (.length event-name))
@@ -503,10 +508,9 @@ then that node is not a child of this parent"
 
 
 (defn active-evented-transition?[transition event-name context]
-  (and (is-active-transition transition context)
-       (not-empty (filter 
+  (not-empty (filter 
                    (fn [event-spec] (event-name-and-transition-event-spec-match? event-name event-spec))
-                   (:events transition)))))
+                   (:events transition))))
 
 
 (defn get-active-transition[state-seq filterp]
@@ -609,6 +613,7 @@ fit criteria"
 
 
 (defn microstep [context transitions]
+  (println (str transitions))
   (-> context
       (exit-states transitions)
       (execute-transition-content transitions)
