@@ -480,13 +480,13 @@ then that node is not a child of this parent"
 (defn state-seq-to-transition-seq [state-seq]
   (mapcat :transitions state-seq))
 
-(defn is-active-transition[transition context]
+(defn is-active-transition?[transition context]
   (if (:cond transition)
     (dm/execute-expression context (:cond transition))
     true))
 ;since we don't support event or conditions yet...
-(defn active-eventless-transition? [transition context]
-  (let [event-list (:event transition)
+(defn eventless-transition? [transition context]
+  (let [event-list (:events transition)
         event-count (if event-list (count event-list) 0)]
     (= event-count 0)))
 
@@ -504,10 +504,11 @@ then that node is not a child of this parent"
               sub-match (.startsWith event-name event-spec)]
           (if (= name-len spec-len)
             true
-            (= \. (.charAt event-name spec-len))))))))
+            (and (< spec-len name-len)
+                 (= \. (.charAt event-name spec-len)))))))))
 
 
-(defn active-evented-transition?[transition event-name context]
+(defn evented-transition?[transition event-name context]
   (not-empty (filter 
                    (fn [event-spec] (event-name-and-transition-event-spec-match? event-name event-spec))
                    (:events transition))))
@@ -567,16 +568,18 @@ conflict with each other at this point forcing a further filtering step"
 
 (defn select-transitions [context transition-p]
   (let [atomics (get-atomic-states-from-configuration context)
-        selected (get-transitions-from-atomics atomics transition-p context)]
+        selected (filter 
+                  (fn [transition] (is-active-transition? transition context)) 
+                  (get-transitions-from-atomics atomics transition-p context))]
     (remove-conflicting-transitions selected context)))
 
 
 
 (defn select-eventless-transitions [context]
-  (select-transitions context (fn [transition] (active-eventless-transition? transition context))))
+  (select-transitions context (fn [transition] (eventless-transition? transition context))))
 
 (defn select-evented-transitions [context event-name]
-  (select-transitions context (fn [transition] (active-evented-transition? transition event-name context))))
+  (select-transitions context (fn [transition] (evented-transition? transition event-name context))))
 
 
 (defn get-descendants [parents children]
@@ -613,7 +616,6 @@ fit criteria"
 
 
 (defn microstep [context transitions]
-  (println (str transitions))
   (-> context
       (exit-states transitions)
       (execute-transition-content transitions)
@@ -643,13 +645,14 @@ fit criteria"
         (if next-event
           (let [events (pop events)
                 transitions (select-evented-transitions context next-event)
-                context (if (not-empty transitions) (microstep transitions) context)]
-            (assoc context :events events))
+                context (assoc context :events events)
+                context (if (not-empty transitions) (microstep context transitions) context)]
+            context)
           context)))))
 
 (defn state-machine-stable? [context]
   (not (or (not-empty (select-eventless-transitions context))
-           (not-empty (select-evented-transitions context (pop (:events context)))))))
+           (not-empty (select-evented-transitions context (first (:events context)))))))
 
 (defn step-until-stable [context]
   (loop [context context]
