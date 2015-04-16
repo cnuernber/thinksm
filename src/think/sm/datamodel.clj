@@ -1,5 +1,5 @@
 (ns think.sm.datamodel
-  (:require [think.sm.core :as core] ))
+  (:require [think.sm.util :as util] ))
 
                     
 (defn scan-node-for-datamodel-code-walker[node context]
@@ -27,7 +27,7 @@ we need to save into an array and place an integer in it's place"
   "returns a new tree with code replaced by integers
 and a context with a variable declaration vec and a code vec
 that corresponds to the integers in the new machine"
-  (core/walk-item node [[] []] scan-node-for-datamodel-code-walker))
+  (util/walk-item node [[] []] scan-node-for-datamodel-code-walker))
 
 (defn output-dm-prefix[var-vec]
   (println 
@@ -51,4 +51,25 @@ that corresponds to the integers in the new machine"
         (println (code-item 1))
         (output-dm-postfix))
       (println "]" ))))
-  
+
+(defn create-datamodel-context [machine]
+  (let [[machine scanned] (scan-node-for-datamodel-code machine)
+        function-vec (load-string (dm-code-to-string scanned))]
+    [machine function-vec]))
+
+(defn execute-expression [context expression]
+  (let [dm-context (:dm-context context)
+        function (dm-context expression)]
+    (function context)))
+
+(defn execute-data-list [context data-seq]
+  (reduce (fn [context data]
+            (let [datamodel (:datamodel context)
+                  varname (:id data)
+                  varvalue (execute-expression context (:expr data))
+                  datamodel (assoc datamodel varname varvalue)]
+              (assoc context :datamodel datamodel)))
+          context
+          data-seq))
+              
+    

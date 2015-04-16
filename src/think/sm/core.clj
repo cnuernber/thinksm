@@ -2,7 +2,8 @@
   (:require [clojure.xml :as xml]
             [clojure.string :as str]
             [think.sm.executable :as exe]
-            [think.sm.datamodel :as dm])
+            [think.sm.datamodel :as dm]
+            [think.sm.util :as util])
   (:import (java.io FileInputStream File)
            (java.util ArrayDeque)))
 
@@ -12,7 +13,8 @@
          add-ancestor-states-to-entry 
          add-descendant-states-to-enter
          add-ancestor-states-to-enter
-         get-effective-target-states)
+         get-effective-target-states
+         execute-datamodel-content )
 
 
 (defn is-state-type [type]
@@ -162,35 +164,6 @@
   (tree-seq has-state-children? state-children machine-node))
 
 
-(defn walkable-item? [item]
-  (or (vector? item)
-      (seq? item)
-      (:type item)))
-
-(defn walk-item [item-or-seq context walker]
-  "walk the machine expecting walker to produce both new machine nodes
-and new context data.  
-Walker returns a vector containing first the new machine node and 
-second the new context"
-  (if (or (vector? item-or-seq)
-          (seq? item-or-seq))
-    (reduce (fn [[item-vec context] item]
-              (let [[new-item context] (if (walkable-item? item)
-                                         (walk-item item context walker)
-                                         [item context])]
-                [(conj item-vec new-item) context]))
-            [[] context]
-            item-or-seq)
-    (let [[item context] (walker item-or-seq context)]
-      (reduce (fn [[item context] key]
-                (let [entry (key item)]
-                  (if (walkable-item? entry)
-                    (let [[new-entry context] (walk-item entry context walker)]
-                      [(assoc item key new-entry) context])
-                    [item context])))
-              [item context]
-              (keys item)))))
-
 ;This is done as a second step so that we can create states outside the xml
 ;context and then when creating the state machine executable context things get
 ;setup.
@@ -205,7 +178,7 @@ second the new context"
         
 
 
-(defn create-context [machine]
+(defn create-context [machine dm-context]
   ;run through machine creating map from id to state
   ;and setting document order
   (let [[machine state-count] (set-document-order machine 1)
@@ -215,7 +188,9 @@ second the new context"
      :history {} ;saved history from exit from history states
      :datamodel {} 
      :id-state-map id-state-map 
-     :events (clojure.lang.PersistentQueue/EMPTY) } ))
+     :visited-states #{}
+     :events (clojure.lang.PersistentQueue/EMPTY)
+     :dm-context dm-context } ))
 
 (defn get-parent-state [state-or-transition context]
   ((:parent state-or-transition) (:id-state-map context)))
@@ -427,6 +402,16 @@ then that node is not a child of this parent"
             { :parent (:id state) :content [] :type :transition :targets [(:id first-child)] }
             nil))))))
 
+(defn execute-datamodel-content [context state]
+  (if (not ((:visited-states context) (:id state)))
+    (let [visited (conj (:visited-states context) (:id state))
+          dm-list (if (:datamodel state) (:datamodel state) [])
+          context (dm/execute-data-list context dm-list)]
+      (assoc context :visited-states visited))
+    context))
+      
+        
+
 (defn execute-onentry-content[context state]
   (let [on-entry-content (:onentry state)]
     (if on-entry-content
@@ -447,6 +432,7 @@ then that node is not a child of this parent"
 
 (defn do-enter-state[context state states-for-default-entry default-history-content]
   (let [new-context (-> context
+                        (execute-datamodel-content state)
                         (execute-onentry-content state)
                         (execute-default-entry-content state states-for-default-entry)
                         (execute-default-history-content state default-history-content))
@@ -471,7 +457,8 @@ then that node is not a child of this parent"
 
 (defn get-initial-configuration [context]
   (let [scxml (:machine context)
-        transition (get-initial-transition scxml)]
+        transition (get-initial-transition scxml)
+        context (execute-datamodel-content context scxml)]
     (enter-states context [transition])))
 
 (defn is-atomic-state [state]
@@ -629,8 +616,9 @@ fit criteria"
 
 
 (defn create-and-initialize-context [loaded-scxml]
-  (-> (create-context loaded-scxml)
-      (get-initial-configuration)))            
+  (let [[loaded-scxml dm-context] (dm/create-datamodel-context loaded-scxml)]
+    (-> (create-context loaded-scxml dm-context)
+        (get-initial-configuration))))  
     
 ;step the state machine returning a new context with an
 ;update configuration.
