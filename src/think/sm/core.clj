@@ -652,7 +652,8 @@ fit criteria"
 
 (defn state-machine-stable? [context]
   (not (or (not-empty (select-eventless-transitions context))
-           (not-empty (select-evented-transitions context (first (:events context)))))))
+           (and (first (:events context))
+                (not-empty (select-evented-transitions context (first (:events context))))))))
 
 (defn step-until-stable [context]
   (loop [context context]
