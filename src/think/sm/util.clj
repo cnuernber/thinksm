@@ -78,3 +78,10 @@ s or ms.  Returns integer milliseconds"
     (catch Exception e (println (str e)) 0)))
       
 
+(defn generate-unique-id[stem id-seed previous-id-set]
+  (loop [id-seed id-seed]
+    (let [new-id (keyword (str stem id-seed))]
+      (if (new-id previous-id-set)
+        (recur (inc id-seed))
+        [new-id id-seed (conj previous-id-set new-id)]))))
+          

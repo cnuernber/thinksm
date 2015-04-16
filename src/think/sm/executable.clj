@@ -32,7 +32,7 @@
    :type :string
    :typeexpr :string
    :id :keyword
-   :idlocation :string
+   :idlocation :keyword
    :delay :string
    :delayexpr :string
    :namelist :string-list })
@@ -145,7 +145,9 @@
  
 (defn add-delayed-event[context event delay]
   (let [delayed-events (:delayed-events context)
-        delayed-events (conj delayed-events { :delay delay :start-time (:current-time context) :event event })]
+        delayed-events (conj delayed-events { :delay delay :send-id (:send-id event) 
+                                             :start-time (:current-time context) 
+                                             :event event })]
     (assoc context :delayed-events delayed-events)))
 
 (defn get-delayed-event-time[delayed-evt time]
@@ -172,13 +174,14 @@
                                       events-to-signal)
             event-names (map :event events-to-signal)
             events (apply conj (:events context) event-names)]
-        (assoc context :delayed-events new-delayed-events :events events :current-time current-time))
+        (assoc context :delayed-events new-delayed-events :events events 
+               :current-time current-time))
       (assoc context :current-time current-time ))))
 
 (defn execute-send-param [param context]
     [ (:name param) (dm/execute-expression context (:expr param)) ])
 
-(defn build-send-event [item context]
+(defn build-send-event [item context send-id]
   (let [evt-name (if (:event item) (:event item) (dm/execute-expression context (:eventexpr item)))
         param-list (mapcat (fn [param] (execute-send-param param context)) (:children item))
         evt-data (if (:expr item) 
@@ -186,8 +189,20 @@
                    (if (not-empty param-list)
                      (apply assoc {} param-list)
                      {}))]
-    (assoc {} :name evt-name :data evt-data)))
+    (assoc {} :name evt-name :data evt-data :send-id send-id)))
 
+
+(defn get-or-generate-send-id [item context]
+  (if (:id item)
+    [context (:id item)]
+    (let [[new-id id-seed send-ids] (util/generate-unique-id 
+                                     "send" (:id-seed context) (:send-ids context))
+          datatable (if (:idlocation item) 
+                      (assoc (:datamodel context) (:idlocation item) new-id)
+                      (:datamodel context))
+          context (assoc context :id-seed id-seed :send-ids send-ids :datamodel datatable)]
+      [context new-id])))
+    
 
 (defmethod execute-specific-content :send [item context]
   (let [target (get-item-or-item-expr item :target :targetexpr context)]
@@ -195,7 +210,8 @@
       (sling/throw+ (assoc context 
                            :errormsg (str "Send target unsupported as of this time: " target) 
                            :errorevent "error.send" ))
-      (let [event (build-send-event item context)
+      (let [[context id-for-event] (get-or-generate-send-id item context)
+            event (build-send-event item context id-for-event)
             delay-str (get-item-or-item-expr item :delay :delayexpr context)
             delay-ms (if delay-str (util/parse-time-val delay-str) 0)]
         (if (not event)
@@ -204,5 +220,6 @@
                                :errorevent "error.send" ))
           (if (= 0 delay-ms)
             (assoc context :events (conj (:events context) event))
-            (add-delayed-event context event delay-ms)))))))
+            (let [[context id-for-event] (get-or-generate-send-id item context)]
+              (add-delayed-event context event delay-ms))))))))
  

@@ -36,8 +36,11 @@
   (let [type (:tag node)
         id-str (:id (:attrs node))
         id (if id-str (keyword id-str) nil)
-        new-vestigial-state { :type type :id id :children [] :onentry [] :onexit [] :transitions [] :history [] :parent (:id parent) }
-        new-state (reduce (fn [state child] (parse-state-child child state)) new-vestigial-state (:content node))
+        new-vestigial-state { :type type :id id :children [] :onentry [] 
+                             :onexit [] :transitions [] :history [] 
+                             :parent (:id parent) }
+        new-state (reduce (fn [state child] (parse-state-child child state)) 
+                          new-vestigial-state (:content node))
         new-children (conj (:children parent) new-state)]
     (assoc parent :children new-children)))
 
@@ -143,7 +146,9 @@
   ((:id state) (:set ordered-set)))
 
 (defn union-ordered-set [ordered-set state-seq]
-  (reduce (fn [ordered-set state] (add-to-ordered-set ordered-set state)) ordered-set state-seq))
+  (reduce (fn [ordered-set state] (add-to-ordered-set ordered-set state)) 
+          ordered-set 
+          state-seq))
 
 ;;tree-seq implementation for iterating through all states in a machine
 (defn has-state-children? [machine-node]
@@ -161,25 +166,22 @@
   "Returns a sequence of a depth first walk"
   (tree-seq has-state-children? state-children machine-node))
 
-
-;This is done as a second step so that we can create states outside the xml
-;context and then when creating the state machine executable context things get
-;setup.
-(defn set-document-order [state idx]
-  (let [state (assoc state :document-order idx)
-        [idx children] (reduce (fn [[idx children] state] 
-                                 (let [[new-child new-idx] (set-document-order state (inc idx))]
-                                   [new-idx (conj children new-child)]))
-                               [idx []]
-                               (:children state))]
-    [(assoc state :children children) idx]))
-        
-
+(defn initial-machine-walker [item context]
+  (let [[idx send-ids] context]
+    (if (is-state-type (:type item))
+      [(assoc item :document-order idx) [(inc idx) send-ids]]
+      (if (= :send (:type item))
+        (let [send-ids (if (:id item) (conj send-ids (:id item)) send-ids)]
+          [item [idx send-ids]])
+        [item [idx send-ids]]))))
+      
 
 (defn create-context 
   ([machine dm-context current-time]
-   (let [[machine state-count] (set-document-order machine 1)
-         id-state-map (reduce (fn [map node] (assoc map (:id node) node)) {} (dfs-state-walk machine))]
+   (let [[machine [state-count send-ids]] (util/walk-item machine [1 #{}] initial-machine-walker)
+         id-state-map (reduce (fn [map node] (assoc map (:id node) node)) 
+                              {} 
+                              (dfs-state-walk machine))]
      { :machine machine 
       :configuration (add-to-ordered-set (create-ordered-set) machine);which states are we in
       :history {} ;saved history from exit from history states
@@ -188,7 +190,9 @@
       :visited-states #{}
       :events (clojure.lang.PersistentQueue/EMPTY)
       :dm-context dm-context 
-      :current-time current-time } ))
+      :current-time current-time
+      :send-ids send-ids 
+      :id-seed 1} ))
   ([machine dm-context]
      (create-context machine dm-context (System/currentTimeMillis))))
 
