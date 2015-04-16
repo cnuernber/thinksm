@@ -655,18 +655,24 @@ fit criteria"
          (if next-event
            (let [events (pop events)
                  event-name (get-event-name next-event)
-                 transitions (select-evented-transitions context event-name)
                  context (assoc context :events events :event next-event)
+                 transitions (select-evented-transitions context event-name)
                  context (if (not-empty transitions) (microstep context transitions) context)]
              context)
            context)))))
   ([context]
    (step-state-machine context (System/currentTimeMillis))))
 
+(defn pop-and-select-evented-transitions [context]
+  (let [next-event (first (:events context))]
+    (if next-event
+      (select-evented-transitions (assoc context :event next-event) (get-event-name next-event))
+      ())))
+
 (defn state-machine-stable? [context]
   (not (or (not-empty (select-eventless-transitions context))
            (and (first (:events context))
-                (not-empty (select-evented-transitions context (get-event-name (first (:events context))))))
+                (not-empty (pop-and-select-evented-transitions context)))
            (not-empty (:delayed-events context)))))
 
 (defn step-until-stable [context]

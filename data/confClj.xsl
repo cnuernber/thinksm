@@ -418,7 +418,7 @@
   <!-- return true if event.data field matches the specified value -->
 
   <xsl:template match="//@conf:eventdataVal">
-    <xsl:attribute name="cond">_event.data == <xsl:value-of select="."/></xsl:attribute>
+    <xsl:attribute name="cond">(= (:data event) <xsl:value-of select="."/>)</xsl:attribute>
   </xsl:template>
 
   <!-- test that _event.data is set to the value specified by <conf:someInlineVal> -->

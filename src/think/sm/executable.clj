@@ -20,6 +20,9 @@
 (defn parse-send-param [node]
   { :type :param :name (keyword (:name (:attrs node))) :expr (:expr (:attrs node)) })
 
+(defn get-content-child-data [node]
+  (apply str (:content node)))
+
 
 (def send-attributes
   { :event :string
@@ -35,8 +38,12 @@
    :namelist :string-list })
 
 (defmethod parse-executable-content :send [node]
-  (let [children (map parse-send-param (:content node))]
-    (util/parse-attributes node { :type :send :children children } send-attributes)))
+  (let [children (map parse-send-param (filter (fn [node] (= :param (:tag node))) (:content node)))
+        content (first (map get-content-child-data (filter (fn [node] (= :content (:tag node))) (:content node))))
+        stmt { :type :send }
+        stmt (if (not-empty children) (assoc stmt :children children) stmt )
+        stmt (if content (assoc stmt :expr content) stmt)]
+    (util/parse-attributes node stmt send-attributes)))
     
 
 (defn parse-executable-content-children [node]
@@ -169,14 +176,18 @@
       (assoc context :current-time current-time ))))
 
 (defn execute-send-param [param context]
-  [ (:name param) (dm/execute-expression context (:expr param)) ])
-        
+    [ (:name param) (dm/execute-expression context (:expr param)) ])
+
 (defn build-send-event [item context]
-  (let [evt-name (get-item-or-item-expr item :event :eventexpr context)
-        param-list (mapcat (fn [param] (execute-send-param param context)) (:children item))]
-    (if (not-empty param-list)
-      (assoc {} :name evt-name :data (apply assoc {} param-list))
-      evt-name)))
+  (let [evt-name (if (:event item) (:event item) (dm/execute-expression context (:eventexpr item)))
+        param-list (mapcat (fn [param] (execute-send-param param context)) (:children item))
+        evt-data (if (:expr item) 
+                   (dm/execute-expression context (:expr item)) 
+                   (if (not-empty param-list)
+                     (apply assoc {} param-list)
+                     {}))]
+    (assoc {} :name evt-name :data evt-data)))
+
 
 (defmethod execute-specific-content :send [item context]
   (let [target (get-item-or-item-expr item :target :targetexpr context)]
