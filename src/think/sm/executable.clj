@@ -29,7 +29,7 @@
    :eventexpr :string
    :target :string
    :targetexpr :string
-   :type :string
+   :type [:string :event-type]
    :typeexpr :string
    :id :keyword
    :idlocation :keyword
@@ -181,15 +181,25 @@
 (defn execute-send-param [param context]
     [ (:name param) (dm/execute-expression context (:expr param)) ])
 
+(def scxml-event-processor "http://www.w3.org/TR/scxml/#SCXMLEventProcessor")
+
 (defn build-send-event [item context send-id]
-  (let [evt-name (if (:event item) (:event item) (dm/execute-expression context (:eventexpr item)))
+  (let [evt-type (if (or (:event-type item)
+                         (:typeexpr item))
+                   (get-item-or-item-expr item :event-type :typeexpr context)
+                   scxml-event-processor)
+        evt-name (if (:event item) (:event item) (dm/execute-expression context (:eventexpr item)))
         param-list (mapcat (fn [param] (execute-send-param param context)) (:children item))
         evt-data (if (:expr item) 
                    (dm/execute-expression context (:expr item)) 
                    (if (not-empty param-list)
                      (apply assoc {} param-list)
                      {}))]
-    (assoc {} :name evt-name :data evt-data :send-id send-id)))
+    (if (not (= evt-type scxml-event-processor))
+      (sling/throw+ (assoc context 
+                           :errormsg (str "Send type unsupported as of this time: " evt-type) 
+                           :errorevent "error.execution" ))
+      (assoc {} :name evt-name :data evt-data :send-id send-id :origintype evt-type ))))
 
 
 (defn get-or-generate-send-id [item context]
@@ -209,7 +219,7 @@
     (if (and target (not (= "#_internal" target)))
       (sling/throw+ (assoc context 
                            :errormsg (str "Send target unsupported as of this time: " target) 
-                           :errorevent "error.send" ))
+                           :errorevent "error.execution" ))
       (let [[context id-for-event] (get-or-generate-send-id item context)
             event (build-send-event item context id-for-event)
             delay-str (get-item-or-item-expr item :delay :delayexpr context)

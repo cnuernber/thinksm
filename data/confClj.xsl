@@ -515,7 +515,7 @@
 
   <!-- true if _event was delivered on the specified i/o processor -->
   <xsl:template match="//@conf:originTypeEq">
-    <xsl:attribute name="cond"> _event.origintype == '<xsl:value-of select="."/>'</xsl:attribute>
+    <xsl:attribute name="cond">(= (:origintype event) "<xsl:value-of select="."/>")</xsl:attribute>
   </xsl:template>
 
 

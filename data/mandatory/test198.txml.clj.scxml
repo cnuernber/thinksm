@@ -8,7 +8,7 @@ what processor was used is to look at the origintype of the resulting event  -->
     </onentry>
 
   
-  <transition event="event1" cond=" _event.origintype == 'http://www.w3.org/TR/scxml/#SCXMLEventProcessor'" target="pass"/>
+  <transition event="event1" cond="(= (:origintype event) &#34;http://www.w3.org/TR/scxml/#SCXMLEventProcessor&#34;)" target="pass"/>
   <transition event="*" target="fail"/>
  </state>
  

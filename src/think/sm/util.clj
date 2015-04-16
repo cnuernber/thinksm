@@ -59,7 +59,11 @@ second the new context"
         attr-key-value-pairs (filter identity 
                                      (map (fn [key] 
                                             (if (key attrs)
-                                              [key (parse-attr (key attrs) (key attr-map))]
+                                              (let [map-entry (key attr-map)
+                                                    [item-type item-key] (if (vector? map-entry)
+                                                                           map-entry
+                                                                           [map-entry key])]
+                                                [item-key (parse-attr (key attrs) item-type)])
                                               nil))
                                           map-keys))]
     (apply assoc retval (flatten attr-key-value-pairs))))
