@@ -12,7 +12,7 @@
    
  <state id="s1">
    <onentry>
-    <assign location="_ioprocessors" expr="'otherName'"/>
+    <assign location="_ioprocessors" expr="&#34;otherName&#34;"/>
     <raise event="foo"/>
     </onentry>
  

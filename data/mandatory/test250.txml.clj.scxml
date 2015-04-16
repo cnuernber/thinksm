@@ -17,17 +17,17 @@ Tester must examine log output from child process to determine success   --><scx
                   </onentry>
                  <transition event="timeout" target="subFinal"/>
               <onexit>
-                 <log expr="'Exiting sub0'"/>
+                 <log expr="&#34;Exiting sub0&#34;"/>
                 </onexit> 
              <state id="sub01">
              <onexit>
-             <log expr="'Exiting sub01'"/>
+             <log expr="&#34;Exiting sub01&#34;"/>
            </onexit>
         </state>
       </state>     
         <final id="subFinal">
           <onentry>
-           <log expr="'entering final state, invocation was not cancelled'"/>
+           <log expr="&#34;entering final state, invocation was not cancelled&#34;"/>
           </onentry>
          </final> 
       </scxml>

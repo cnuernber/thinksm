@@ -3,13 +3,13 @@ will fail (test215sub1.scxml is not of type 'foo', even if the platform supports
 the runtime value is used, the invocation will succeed --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" datamodel="clojure" version="1.0">
 
 <datamodel>
-  <data id="Var1" expr="'foo'"/>
+  <data id="Var1" expr="&#34;foo&#34;"/>
    </datamodel> 
    
 <state id="s0">
   <onentry>
     <send event="timeout" delay="5s"/>
-    <assign location="Var1" expr="'http://www.w3.org/TR/scxml/'"/>
+    <assign location="Var1" expr="&#34;http://www.w3.org/TR/scxml/&#34;"/>
     </onentry>
   <invoke typeexpr="Var1">
     <content>

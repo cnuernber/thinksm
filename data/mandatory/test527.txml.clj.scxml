@@ -14,7 +14,7 @@
    </state>
    <final id="s02">
      <donedata>
-      <content expr="'foo'"/>
+      <content expr="&#34;foo&#34;"/>
       </donedata>
      </final>
  </state>

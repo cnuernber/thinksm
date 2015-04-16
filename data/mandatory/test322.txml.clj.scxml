@@ -12,7 +12,7 @@ be assigned to  --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="ht
    
  <state id="s1">
    <onentry>
-    <assign location="_sessionid" expr="'otherName'"/>
+    <assign location="_sessionid" expr="&#34;otherName&#34;"/>
     <raise event="foo"/>
     </onentry>
  

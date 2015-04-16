@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?><!-- we test that eventexpr uses the current value of var1, not its initial value  --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" datamodel="clojure" version="1.0">
 <datamodel>
-  <data id="Var1" expr="'event1'"/>
+  <data id="Var1" expr="&#34;event1&#34;"/>
   </datamodel>
   
 <state id="s0">
   <onentry>
-   <assign location="Var1" expr="'event2'"/>
+   <assign location="Var1" expr="&#34;event2&#34;"/>
    <send eventexpr="Var1"/>
     </onentry>
     

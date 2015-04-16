@@ -1,4 +1,5 @@
-(ns think.sm.util)
+(ns think.sm.util
+  (:require [clojure.string :as str]))
 
 
 (defn walkable-item? [item]
@@ -29,3 +30,36 @@ second the new context"
                     [item context])))
               [item context]
               (keys item)))))
+
+
+(defn space-delimited-string-to-keyword-array [data]
+  (if data
+    (mapv keyword (str/split data #" "))
+    []))
+
+(defn space-delimited-string-to-array [data]
+  (if data
+    (vec (str/split data #" "))
+    []))
+
+
+(def attr-types [:string :keyword :string-list :keyword-list] )
+
+(defn parse-attr [value type]
+  (case type
+    :string value
+    :keyword (keyword value)
+    :string-list (space-delimited-string-to-array value)
+    :keyword-list (space-delimited-string-to-keyword-array value)
+    value ))
+
+(defn parse-attributes [xml-node retval attr-map]
+  (let [attrs (:attrs xml-node)
+        map-keys (keys attr-map)
+        attr-key-value-pairs (filter identity 
+                                     (map (fn [key] 
+                                            (if (key attrs)
+                                              [key (parse-attr (key attrs) (key attr-map))]
+                                              nil))
+                                          map-keys))]
+    (apply assoc retval (flatten attr-key-value-pairs))))

@@ -3,7 +3,8 @@
             [clojure.string :as str]
             [think.sm.executable :as exe]
             [think.sm.datamodel :as dm]
-            [think.sm.util :as util])
+            [think.sm.util :as util]
+            [slingshot.slingshot :as sling])
   (:import (java.io FileInputStream File)
            (java.util ArrayDeque)))
 
@@ -41,21 +42,12 @@
     (assoc parent :children new-children)))
 
 
-(defn space-delimited-string-to-keyword-array [data]
-  (if data
-    (mapv keyword (str/split data #" "))
-    []))
-
-(defn space-delimited-string-to-array [data]
-  (if data
-    (vec (str/split data #" "))
-    []))
   
 
 (defn parse-transition [parent node]
   (let [type :transition
-        target-list (space-delimited-string-to-keyword-array (:target (:attrs node)))
-        event-list (space-delimited-string-to-array (:event (:attrs node)))
+        target-list (util/space-delimited-string-to-keyword-array (:target (:attrs node)))
+        event-list (util/space-delimited-string-to-array (:event (:attrs node)))
         transition-content (reduce parse-executable-content [] (:content node))
         new-transition { :type type :content transition-content :targets target-list 
                         :parent (:id parent) :id (:id parent) :events event-list 
@@ -389,13 +381,22 @@ then that node is not a child of this parent"
   (sort-by :document-order state-seq))
 
 (defn execute-content [content-list context]
-  (reduce (fn [context content-or-list]
-             (if (or (seq? content-or-list)
-                    (vector? content-or-list))
-              (execute-content content-or-list context)
-              (exe/execute-specific-content content-or-list context)))
-          context
-          content-list))
+  (sling/try+ 
+    (reduce (fn [context content-or-list]
+              (if (or (seq? content-or-list)
+                      (vector? content-or-list))
+                (execute-content content-or-list context)
+                (exe/execute-specific-content content-or-list context)))
+            context
+            content-list)
+    (catch map? context 
+            (let [msg (:errormsg context)
+                  evt (:errorevent context)
+                  context (assoc context :errormsg nil :errorevent nil 
+                                 :events (conj (:events context) evt))]
+              (println (str "Error during execution: " msg))
+              context))))
+        
 
 (defn get-initial-transition [state]
   (let [transition (:initial state)]
@@ -502,10 +503,12 @@ then that node is not a child of this parent"
               event-spec (if spec-general (.substring event-spec 0 (- spec-len 2)) event-spec)
               spec-len (.length event-spec)
               sub-match (.startsWith event-name event-spec)]
-          (if (= name-len spec-len)
-            true
-            (and (< spec-len name-len)
-                 (= \. (.charAt event-name spec-len)))))))))
+          (if sub-match
+            (if (= name-len spec-len)
+              true
+              (and (< spec-len name-len)
+                   (= \. (.charAt event-name spec-len))))
+            false))))))
 
 
 (defn evented-transition?[transition event-name context]
@@ -514,15 +517,15 @@ then that node is not a child of this parent"
                    (:events transition))))
 
 
-(defn get-active-transition[state-seq filterp]
+(defn get-active-transition[state-seq filterp context]
   (let [transitions (state-seq-to-transition-seq state-seq)
-        active-transitions (filter filterp transitions)]
+        active-transitions (filter (fn [transition] (is-active-transition? transition context)) (filter filterp transitions))]
     (first active-transitions)))
 
 (defn get-transitions-from-atomics [atomics-seq filterp context]
   (reduce (fn [transitions atomic]
             (let [state-seq (get-proper-ancestors atomic nil context [atomic])
-                  first-transition (get-active-transition state-seq filterp)]
+                  first-transition (get-active-transition state-seq filterp context)]
               (if first-transition
                 (conj transitions first-transition)
                 transitions)))
@@ -568,9 +571,7 @@ conflict with each other at this point forcing a further filtering step"
 
 (defn select-transitions [context transition-p]
   (let [atomics (get-atomic-states-from-configuration context)
-        selected (filter 
-                  (fn [transition] (is-active-transition? transition context)) 
-                  (get-transitions-from-atomics atomics transition-p context))]
+        selected (get-transitions-from-atomics atomics transition-p context)]
     (remove-conflicting-transitions selected context)))
 
 

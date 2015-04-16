@@ -5,7 +5,7 @@ to dispose of eventn in the next state, hence the targetless transitions (which 
    
  <state id="s0">
    <onentry>
-    <assign location="_sessionid" expr="'otherName'"/>
+    <assign location="_sessionid" expr="&#34;otherName&#34;"/>
     <raise event="event1"/>
     </onentry>
  
@@ -15,7 +15,7 @@ to dispose of eventn in the next state, hence the targetless transitions (which 
    
  <state id="s1">
      <onentry>
-    <assign location="_event" expr="'otherName'"/>
+    <assign location="_event" expr="&#34;otherName&#34;"/>
     <raise event="event2"/>
     </onentry>
     <!-- throw out event1 if it's still around -->
@@ -28,7 +28,7 @@ to dispose of eventn in the next state, hence the targetless transitions (which 
    
 <state id="s2">
      <onentry>
-    <assign location="_ioprocessors" expr="'otherName'"/>
+    <assign location="_ioprocessors" expr="&#34;otherName&#34;"/>
     <raise event="event3"/>
     </onentry>
    <transition event="event2"/>
@@ -38,7 +38,7 @@ to dispose of eventn in the next state, hence the targetless transitions (which 
    
 <state id="s3">
      <onentry>
-    <assign location="_name" expr="'otherName'"/>
+    <assign location="_name" expr="&#34;otherName&#34;"/>
     <raise event="event4"/>
     </onentry>
    <transition event="event3"/>

@@ -6,7 +6,7 @@
   
 <state id="s0">
   <onentry>
-   <assign location="Var1" expr="'#_internal'"/>
+   <assign location="Var1" expr="&#34;#_internal&#34;"/>
    <send targetexpr="Var1" event="event1"/>
     </onentry>
     

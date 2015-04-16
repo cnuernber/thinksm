@@ -3,13 +3,13 @@ will fail (assuming that there is no script named 'foo').  If
 the runtime value is used, the invocation will succeed --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" version="1.0" datamodel="clojure">
 
 <datamodel>
-  <data id="Var1" expr="'foo'"/>
+  <data id="Var1" expr="&#34;foo&#34;"/>
    </datamodel> 
    
 <state id="s0">
   <onentry>
     <send event="timeout" delay="5s"/>
-   <assign location="Var1" expr="'file:test216sub1.scxml'"/>
+   <assign location="Var1" expr="&#34;file:test216sub1.scxml&#34;"/>
     </onentry>
   <invoke srcexpr="Var1" type="http://www.w3.org/TR/scxml"/>
   <transition event="done.invoke" target="pass"/>

@@ -12,7 +12,7 @@ content sums the items into var1 so it should be 6 at the end --><scxml xmlns="h
    <state id="s0">
       <onentry>
         <foreach item="Var2" array="Var3">
-          <assign location="Var1" expr="Var1 + Var2"/>
+          <assign location="Var1" expr="(+,Var1,Var2)"/>
           </foreach>
         </onentry>
 

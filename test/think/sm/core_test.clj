@@ -29,3 +29,17 @@
 (create-conformance-test 147 false)
 (create-conformance-test 148 false)
 (create-conformance-test 150 false)
+(create-conformance-test 151 false)
+;(create-conformance-test 152 false) syntax error causes compilation failure
+(create-conformance-test 153 false)
+(create-conformance-test 155 false)
+;(create-conformance-test 156 false) syntax error in test
+(create-conformance-test 158 false)
+(create-conformance-test 159 false)
+(create-conformance-test 172 false)
+(create-conformance-test 173 false)
+(create-conformance-test 174 false)
+(create-conformance-test 175 false)
+;(create-conformance-test 176 false)
+;(create-conformance-test 178 false)
+;(create-conformance-test 179 false)

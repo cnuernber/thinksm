@@ -3,7 +3,7 @@ event1 will be processed before event2, because event1 is added to the internal 
 added to the external queue (event though event2 is generated first).  we have to make sure that event2
 is actually delivered.  The delayed <send> makes sure another event is generated (so the test doesn't hang) --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" version="1.0" datamodel="clojure">
 <datamodel>
- <data id="Var1" expr="'#_scxml_'"/>
+ <data id="Var1" expr="&#34;#_scxml_&#34;"/>
  <data id="Var2" expr="_sessionid"/>
  </datamodel>
   

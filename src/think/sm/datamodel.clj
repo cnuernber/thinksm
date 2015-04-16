@@ -15,7 +15,11 @@ we need to save into an array and place an integer in it's place"
                                                          (if (keyword node)
                                                            [keyword (node keyword)]
                                                            nil))
-                                                       [:expr :cond])))
+                                                       [:expr :cond 
+                                                        :targetexpr 
+                                                        :eventexpr
+                                                        :typeexpr
+                                                        :delayexpr])))
           idx (count code-vec)]
       (if data-to-replace
         (let [[keyword code] data-to-replace

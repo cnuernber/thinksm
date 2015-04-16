@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><!-- we test that the automatically generated id has the form stateid.platformid.   --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0" version="1.0" datamodel="clojure">
  <datamodel>
    <data id="Var1"/>
-   <data id="Var2" expr="'s0.'"/>
+   <data id="Var2" expr="&#34;s0.&#34;"/>
    </datamodel>
      
 <state id="s0">

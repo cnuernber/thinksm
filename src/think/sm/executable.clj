@@ -1,5 +1,7 @@
 (ns think.sm.executable
-  (:require [think.sm.datamodel :as dm]))
+  (:require [think.sm.datamodel :as dm]
+            [think.sm.util :as util]
+            [slingshot.slingshot :as sling]))
 
 (defmulti parse-executable-content :tag)
 
@@ -13,6 +15,24 @@
   { :type :assign 
    :location (keyword (:location (:attrs node)))
    :expr (:expr (:attrs node)) })
+
+
+
+(def send-attributes
+  { :event :string
+   :eventexpr :string
+   :target :string
+   :targetexpr :string
+   :type :string
+   :typeexpr :string
+   :id :keyword
+   :idlocation :string
+   :delay :string
+   :delayexpr :string
+   :namelist :string-list })
+
+(defmethod parse-executable-content :send [node]
+  (util/parse-attributes node { :type :send } send-attributes))
 
 (defn parse-executable-content-children [node]
   (reduce (fn [children node-child]
@@ -102,3 +122,26 @@
                               children)]
           (recur context (inc index) (first data-seq) (rest data-seq)))
         context))))
+
+(defn get-item-or-item-expr [item keywd keywdexpr context]
+  (if (keywd item)
+    (keywd item)
+    (let [expr (keywdexpr item)]
+      (if expr
+        (dm/execute-expression context expr)
+        nil))))
+ 
+
+(defmethod execute-specific-content :send [item context]
+  (let [target (get-item-or-item-expr item :target :targetexpr context)]
+    (if (and target
+             (not (= "#_internal" target)))
+      (sling/throw+ (assoc context 
+                           :errormsg (str "Send target unsupported as of this time: " target) 
+                           :errorevent "error.send" ))
+      (let [event (get-item-or-item-expr item :event :eventexpr context)]
+        (if event
+          (assoc context :events (conj (:events context) event))
+          (sling/throw+ (assoc context
+                               :errormsg (str "Send target unsupported as of this time") 
+                               :errorevent "error.send" )))))))
