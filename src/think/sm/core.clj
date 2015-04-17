@@ -112,6 +112,7 @@
           {:type :scxml :id :scxml_root :children [] 
            :datamodel-type (keyword (:datamodel (:attrs node))) 
            :initial (keyword (:initial (:attrs node)))
+           :binding (keyword (:binding (:attrs node)))
            } 
           (:content node)))
 
@@ -189,6 +190,7 @@
       :id-state-map id-state-map 
       :visited-states #{}
       :events (clojure.lang.PersistentQueue/EMPTY)
+      :external-events (clojure.lang.PersistentQueue/EMPTY)
       :dm-context dm-context 
       :current-time current-time
       :send-ids send-ids 
@@ -466,12 +468,19 @@ then that node is not a child of this parent"
         configuration (:configuration final-context)
         ordered-configuration (vec (enter-state-sort (:vec configuration)))]
     final-context ))
-                
+
+(defn execute-early-binding[context]
+  (let [machine (:machine context)
+        all-states (dfs-state-walk machine)]
+    (reduce execute-datamodel-content context all-states)))
 
 (defn get-initial-configuration [context]
   (let [scxml (:machine context)
         transition (get-initial-transition scxml)
-        context (execute-datamodel-content context scxml)]
+        context (if (or (not (:binding context))
+                        (= :early (:binding context)))
+                  (execute-early-binding context)
+                  context)]
     (enter-states context [transition])))
 
 (defn is-atomic-state [state]
@@ -648,22 +657,27 @@ fit criteria"
     event
     (:name event)))
 
+(defn step-next-event [context event-queue]
+  (let [events (event-queue context)
+        next-event (first events)]
+    (if next-event
+      (let [events (pop events)
+            event-name (get-event-name next-event)
+            context (assoc context event-queue events :event next-event)
+            transitions (select-evented-transitions context event-name)
+            context (if (not-empty transitions) (microstep context transitions) context)]
+        context)
+      context)))
+
 (defn step-state-machine 
   ([context current-time]
    (let [context (exe/update-delayed-events (assoc context :event nil) current-time)
          eventless (select-eventless-transitions context)]
      (if (not-empty eventless)
        (microstep context eventless)
-       (let [events (:events context)
-             next-event (first events)]
-         (if next-event
-           (let [events (pop events)
-                 event-name (get-event-name next-event)
-                 context (assoc context :events events :event next-event)
-                 transitions (select-evented-transitions context event-name)
-                 context (if (not-empty transitions) (microstep context transitions) context)]
-             context)
-           context)))))
+       (if (not-empty (:events context))
+         (step-next-event context :events)
+         (step-next-event context :external-events)))))
   ([context]
    (step-state-machine context (System/currentTimeMillis))))
 
@@ -675,8 +689,8 @@ fit criteria"
 
 (defn state-machine-stable? [context]
   (not (or (not-empty (select-eventless-transitions context))
-           (and (first (:events context))
-                (not-empty (pop-and-select-evented-transitions context)))
+           (not-empty (:events context))
+           (not-empty (:external-events context))
            (not-empty (:delayed-events context)))))
 
 (defn step-until-stable [context]

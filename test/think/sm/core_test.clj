@@ -76,7 +76,12 @@
 
 (defn test-number-to-file-name [number]
   (str/join [test-base-dir "/" "mandatory" "/test" number ".txml.clj.scxml"]))
-                                
+
+;552 needs an external file.  This won't always work and I am not going
+;to support it at this time.  The others are test that require user checking
+;of some sort
+(def test-number-blacklist [415 178 152 156 552])
+(def test-path-blacklist (into #{} (map test-number-to-file-name test-number-blacklist)))
 
 (defn run-test-and-report-result [fname]
   (sling/try+
@@ -100,7 +105,8 @@
         files (.listFiles folder)
         str-files (map (fn [f] (.toString f)) files)]
     (sort (filter (fn [str]
-              (.endsWith str "clj.scxml"))
+                    (and (not (test-path-blacklist str))
+                         (.endsWith str "clj.scxml")))
             str-files))))
 
 

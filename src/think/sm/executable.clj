@@ -35,7 +35,7 @@
    :idlocation :keyword
    :delay :string
    :delayexpr :string
-   :namelist :string-list })
+   :namelist :keyword-list })
 
 (defmethod parse-executable-content :send [node]
   (let [children (map parse-send-param (filter (fn [node] (= :param (:tag node))) (:content node)))
@@ -112,10 +112,14 @@
 
 (defmethod execute-specific-content :assign [item context]
   (let [datamodel (:datamodel context)
-        location (:location item)
-        value (dm/execute-expression context (:expr item))
-        datamodel (assoc datamodel location value)]
-    (assoc context :datamodel datamodel)))
+        location (:location item)]
+    (if (contains? datamodel location)
+      (let [value (dm/execute-expression context (:expr item))
+            datamodel (assoc datamodel location value)]
+        (assoc context :datamodel datamodel))
+      (sling/throw+ (assoc context 
+                           :errormsg (str "Assinging to invalid datamodel location: " location) 
+                           :errorevent "error.execution" )))))
         
       
 (defmethod execute-specific-content :foreach [item context]
@@ -197,7 +201,18 @@
                    (dm/execute-expression context (:expr item)) 
                    (if (not-empty param-list)
                      (apply assoc {} param-list)
-                     {}))]
+                     {}))
+        datamodel (:datamodel context)
+        evt-data (if (:namelist item)
+                   (apply assoc evt-data 
+                          (mapcat (fn [keyword]
+                                    (if (contains? datamodel keyword)
+                                      [keyword (:datamodel keyword)]
+                                      (sling/throw+ (assoc context 
+                                                           :errormsg (str "Invalid datamodel location " keyword) 
+                                                           :errorevent "error.execution" ))))
+                                  (:namelist item)))
+                   evt-data)]
     (if (not (= evt-type scxml-event-processor))
       (sling/throw+ (assoc context 
                            :errormsg (str "Send type unsupported as of this time: " evt-type) 
@@ -220,19 +235,21 @@
 (defmethod execute-specific-content :send [item context]
   (let [target (get-item-or-item-expr item :target :targetexpr context)]
     (if (and target (not (= "#_internal" target)))
-      (sling/throw+ (assoc context 
-                           :errormsg (str "Send target unsupported as of this time: " target) 
-                           :errorevent "error.execution" ))
+      (let [error-event (if (.startsWith target "#") "error.communication" "error.execution")]
+        (sling/throw+ (assoc context 
+                             :errormsg (str "Send target unsupported as of this time: " target) 
+                             :errorevent error-event )))
       (let [[context id-for-event] (get-or-generate-send-id item context)
             event (build-send-event item context id-for-event)
             delay-str (get-item-or-item-expr item :delay :delayexpr context)
-            delay-ms (if delay-str (util/parse-time-val delay-str) 0)]
+            delay-ms (if delay-str (util/parse-time-val delay-str) 0)
+            event-queue (if (= target "#_internal") :events :external-events)]
         (if (not event)
           (sling/throw+ (assoc context
                                :errormsg (str "Send with null event") 
                                :errorevent "error.send" ))
           (if (= 0 delay-ms)
-            (assoc context :events (conj (:events context) event))
+            (assoc context event-queue (conj (event-queue context) event))
             (let [[context id-for-event] (get-or-generate-send-id item context)]
               (add-delayed-event context event delay-ms))))))))
 
