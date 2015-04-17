@@ -1,7 +1,9 @@
 (ns think.sm.core-test
   (:require [clojure.test :refer :all]
             [clojure.string :as str]
-            [think.sm.core :refer :all]))
+            [think.sm.core :refer :all]
+            [slingshot.slingshot :as sling])
+  (:import (java.io File)))
 
 (def test-base-dir "data")
 
@@ -71,3 +73,49 @@
 (create-conformance-test 230 false)
 (create-conformance-test 230 false)
 (create-conformance-test 230 false)
+
+(defn test-number-to-file-name [number]
+  (str/join [test-base-dir "/" "mandatory" "/test" number ".txml.clj.scxml"]))
+                                
+
+(defn run-test-and-report-result [fname]
+  (sling/try+
+   (let [full-test-name fname
+         machine (load-scxml-file full-test-name)
+         context (create-and-initialize-context machine)
+         final-context (step-until-stable context)
+         final-configuration (:configuration final-context)]
+     (if (and (:pass (:set final-configuration))
+              (not (:fail (:set final-configuration))))
+       { :type :pass }
+       { :type :fail }))
+   (catch map? data data)
+   (catch Exception e { :type :unknown-error :exception e })))
+
+
+
+
+(defn list-all-test-files[]
+  (let [folder (File. "data/mandatory")
+        files (.listFiles folder)
+        str-files (map (fn [f] (.toString f)) files)]
+    (sort (filter (fn [str]
+              (.endsWith str "clj.scxml"))
+            str-files))))
+
+
+
+(defn run-test-and-bin-results [test-list]
+  (reduce (fn [results test-file-name]
+            (let [test-result (run-test-and-report-result test-file-name)]
+              (if (= :parse-error (:type test-result))
+                (let [xml-tag (:tag (:xml-node test-result))
+                      existing (:parse-error results)
+                      result-map (if existing existing {})
+                      result-map (assoc result-map xml-tag (conj (xml-tag result-map) test-file-name))]
+                  (assoc results :parse-error result-map))
+                (assoc results (:type test-result) (conj ((:type test-result) results) test-file-name)))))
+          {}
+          test-list))
+                  
+          

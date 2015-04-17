@@ -103,7 +103,7 @@
     (assoc state :datamodel data-defs)))
 
 (defmethod parse-state-child :default [child state]
-  (throw (Throwable. (str "Unrecognized state child " child))))
+  (sling/throw+ { :type :parse-error :xml-node child :reason "Unrecognized child in parse state" }))
                    
 
 (defn parse-xml-scxml [node]

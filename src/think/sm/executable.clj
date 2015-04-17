@@ -76,7 +76,7 @@
   (util/parse-attributes node {:type :cancel} { :sendid :keyword :sendidexpr :string }))
 
 (defmethod parse-executable-content :default [node]
-    (throw (Throwable. (str "Unrecognized executable content " (:tag node)))))
+    (sling/throw+ { :type :parse-error :xml-node node :reason "Unrecognized executable content" }))
 
 (defmulti execute-specific-content :type)
 

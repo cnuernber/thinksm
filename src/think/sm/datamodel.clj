@@ -1,5 +1,6 @@
 (ns think.sm.datamodel
-  (:require [think.sm.util :as util] ))
+  (:require [think.sm.util :as util]
+            [slingshot.slingshot :as sling]))
                     
 (defn scan-node-for-datamodel-code-walker[node context]
   "If the node contains cond or expr then we have code
@@ -61,13 +62,17 @@ that corresponds to the integers in the new machine"
       (println "]" ))))
 
 (defn create-datamodel-context [machine]
-  (let [[machine scanned] (scan-node-for-datamodel-code machine)
-        function-vec (load-string (dm-code-to-string scanned))]
-    [machine function-vec]))
+  (sling/try+
+   (let [[machine scanned] (scan-node-for-datamodel-code machine)
+         function-vec (load-string (dm-code-to-string scanned))]
+     [machine function-vec])
+   (catch Exception e (sling/throw+ { :type :compilation-failure :exception e }))))
 
 (defn execute-expression [context expression]
   (let [dm-context (:dm-context context)
         function (dm-context expression)]
+    (when (not function)
+      (sling/throw+ { :type :execution-error :component :datamodel :reason "Missing expression" }))
     (function context)))
 
 (defn execute-data-list [context data-seq]
