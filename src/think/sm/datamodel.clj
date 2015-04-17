@@ -19,7 +19,8 @@ we need to save into an array and place an integer in it's place"
                                                         :targetexpr 
                                                         :eventexpr
                                                         :typeexpr
-                                                        :delayexpr])))
+                                                        :delayexpr
+                                                        :sendidexpr])))
           idx (count code-vec)]
       (if data-to-replace
         (let [[keyword code] data-to-replace

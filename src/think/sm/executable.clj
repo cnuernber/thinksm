@@ -72,6 +72,9 @@
               :array (keyword (:array attrs))}]
     (assoc stmt :children (parse-executable-content-children node))))
 
+(defmethod parse-executable-content :cancel [node]
+  (util/parse-attributes node {:type :cancel} { :sendid :keyword :sendidexpr :string }))
+
 (defmethod parse-executable-content :default [node]
     (throw (Throwable. (str "Unrecognized executable content " (:tag node)))))
 
@@ -232,4 +235,11 @@
             (assoc context :events (conj (:events context) event))
             (let [[context id-for-event] (get-or-generate-send-id item context)]
               (add-delayed-event context event delay-ms))))))))
- 
+
+(defmethod execute-specific-content :cancel [item context] 
+  (let [send-id (keyword (get-item-or-item-expr item :sendid :sendidexpr context))
+        delayed-events (filter (fn [delayed] 
+                                 (not (= send-id (:send-id (:event delayed)))))
+                                 (:delayed-events context))]
+    (assoc context :delayed-events delayed-events)))
+    
