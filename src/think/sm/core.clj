@@ -226,7 +226,7 @@
         children (:children state)
         not-entered (filter (fn [state] (not(in-ordered-set? states-to-enter state))) children) ;delicate naming on that one
         enter-args [states-to-enter states-for-default-entry default-history-content]]
-    (reduce (fn [state] (add-descendant-states-to-enter state enter-args context)) enter-args not-entered)))
+    (reduce (fn [context state] (add-descendant-states-to-enter state enter-args context)) enter-args not-entered)))
 
 ;worry about this when the time comes.
 (defn get-history-state-initial-data [state]
@@ -254,7 +254,8 @@
 
 (defn get-effective-target-states [item context]
   (let [initial-target-list (if (= (:type item) :state)
-                              (get-state-initial-targets item context)
+                              (id-list-to-state-list (get-state-initial-targets item context) 
+                                                     context)
                               (id-list-to-state-list (:targets item) context))]
     (loop [retval (create-ordered-set)
            state (first initial-target-list)
@@ -444,13 +445,19 @@ then that node is not a child of this parent"
       (execute-content history-content context)
       context)))
 
+(defn generate-done-event [context state]
+  (if (= :final (:type state))
+    (assoc context :events (conj (:events context) (str "done.state." (name (:parent state)))))
+    context))
+
 
 (defn do-enter-state[context state states-for-default-entry default-history-content]
   (let [new-context (-> context
                         (execute-datamodel-content state)
                         (execute-onentry-content state)
                         (execute-default-entry-content state states-for-default-entry)
-                        (execute-default-history-content state default-history-content))
+                        (execute-default-history-content state default-history-content)
+                        (generate-done-event state))
         configuration (add-to-ordered-set (:configuration new-context) state)]
     (assoc new-context :configuration configuration)))
 
@@ -462,7 +469,8 @@ then that node is not a child of this parent"
         [states-to-enter states-for-default-entry default-history-content] enter-args
         ordered-enter-states (enter-state-sort (:vec states-to-enter))
         final-context (reduce (fn [context state]
-                                (do-enter-state context state states-for-default-entry default-history-content))
+                                (do-enter-state context state states-for-default-entry 
+                                                default-history-content))
                               context
                               ordered-enter-states)
         configuration (:configuration final-context)
@@ -484,9 +492,9 @@ then that node is not a child of this parent"
     (enter-states context [transition])))
 
 (defn is-atomic-state [state]
-  (and (= (:type state)
-          :state)
-       (= 0 (count (:children state)))))
+  (and (or (= (:type state) :final)
+           (and (= :state (:type state))
+                (= 0 (count (:children state)))))))
 
 (defn get-atomic-states-from-configuration [context]
   (let [configuration (:configuration context)]
