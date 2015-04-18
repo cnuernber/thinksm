@@ -15,7 +15,9 @@
          add-descendant-states-to-enter
          add-ancestor-states-to-enter
          get-effective-target-states
-         execute-datamodel-content )
+         execute-datamodel-content 
+         get-atomic-states-from-configuration
+         get-initial-transition )
 
 
 (defn is-state-type [type]
@@ -252,11 +254,8 @@
         (union-ordered-set targets (get-effective-target-states (:transition state)))))
     (add-to-ordered-set targets state)))
 
-(defn get-state-initial-targets [state context]
-  (let [initial-transition (:initial state)]
-    (if initial-transition
-      (:targets initial-transition)
-      (list (:id (first (:children state)))))))
+(defn get-state-initial-targets [state]
+  (:targets (get-initial-transition state)))
 
 (defn id-list-to-state-list[id-seq context]
   (let [id-map (:id-state-map context)]
@@ -265,7 +264,7 @@
 
 (defn get-effective-target-states [item context]
   (let [initial-target-list (if (= (:type item) :state)
-                              (id-list-to-state-list (get-state-initial-targets item context) 
+                              (id-list-to-state-list (get-state-initial-targets item) 
                                                      context)
                               (id-list-to-state-list (:targets item) context))]
     (loop [retval (create-ordered-set)
@@ -417,8 +416,7 @@ then that node is not a child of this parent"
   (let [transition (:initial state)]
     (if (= (:type transition) :transition)
       transition
-      (if (and (vector? transition)
-               (count transition))
+      (if (seq transition)
         { :parent (:id state) :content [] :type :transition :targets transition }
         (let [first-child (first (:children state))]
           (if first-child
