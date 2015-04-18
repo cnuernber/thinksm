@@ -125,3 +125,11 @@
           test-list))
                   
           
+(defn bin-all-tests[]
+  (run-test-and-bin-results (list-all-test-files)))
+
+(defn test-get-initial-context [testnum]
+  (create-and-initialize-context (load-scxml-file (test-number-to-file-name testnum))))
+
+(defn run-individual-test[testnum]
+  (run-test-and-report-result (test-number-to-file-name testnum)))

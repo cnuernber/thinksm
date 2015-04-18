@@ -159,6 +159,16 @@
     :scxml true
     false))
 
+
+(defn is-final-state?[state]
+  (= (:type state) :final))
+
+(defn is-atomic-state? [state]
+  (and (or (is-final-state? state)
+           (and (= :state (:type state))
+                (= 0 (count (:children state)))))))
+
+
 (defn state-children [machine-node]
   (filter is-state-machine-node (:children machine-node)))
 
@@ -226,7 +236,7 @@
         children (:children state)
         not-entered (filter (fn [state] (not(in-ordered-set? states-to-enter state))) children) ;delicate naming on that one
         enter-args [states-to-enter states-for-default-entry default-history-content]]
-    (reduce (fn [context state] (add-descendant-states-to-enter state enter-args context)) enter-args not-entered)))
+    (reduce (fn [enter-args state] (add-descendant-states-to-enter state enter-args context)) enter-args not-entered)))
 
 ;worry about this when the time comes.
 (defn get-history-state-initial-data [state]
@@ -445,25 +455,48 @@ then that node is not a child of this parent"
       (execute-content history-content context)
       context)))
 
-(defn generate-done-event [context state]
-  (if (= :final (:type state))
-    (assoc context :events (conj (:events context) (str "done.state." (name (:parent state)))))
-    context))
-
-
 (defn do-enter-state[context state states-for-default-entry default-history-content]
   (let [new-context (-> context
                         (execute-datamodel-content state)
                         (execute-onentry-content state)
                         (execute-default-entry-content state states-for-default-entry)
-                        (execute-default-history-content state default-history-content)
-                        (generate-done-event state))
+                        (execute-default-history-content state default-history-content))
         configuration (add-to-ordered-set (:configuration new-context) state)]
     (assoc new-context :configuration configuration)))
 
+;this is done in a separate pass so that we generate only exactly the number of
+;events we should
+(defn signal-done-states[context ordered-enter-states]
+  (let [final-states (filter is-final-state? ordered-enter-states)
+        context (reduce (fn [context final]
+                          (assoc context :events 
+                                 (conj (:events context) 
+                                       (str "done.state." (name (:parent final))))))
+                        context
+                        final-states)
+        all-ancestors (mapcat (fn [state] (get-proper-ancestors state nil context)) 
+                              final-states)
+        parallel-ancestors (distinct (filter (fn [state] (= :parallel (:type state))) 
+                                           all-ancestors))
+        config-atomics (get-atomic-states-from-configuration (:configuration context))
+        done-pa (filter (fn [parallel]
+                          (let [parallel-children (filter 
+                                                   (fn [state]
+                                                     (is-descendant state parallel))
+                                                   config-atomics)]
+                            (every? is-final-state? parallel-children)))
+                        parallel-ancestors)]
+    (reduce (fn [context parallel]
+              (assoc context :events 
+                     (conj (:events context)
+                             (str "done.state." (name (:id parallel))))))
+            context
+            done-pa)))
+        
 
 (defn enter-states[context transitions]
-  "Enter the states indicated by this list of transitions.  Return a new configuration ordered set"
+  "Enter the states indicated by this list of transitions.  
+Return a new configuration ordered set"
   (let [enter-args [(create-ordered-set) (create-ordered-set) {}]
         enter-args (compute-entry-set transitions enter-args context)
         [states-to-enter states-for-default-entry default-history-content] enter-args
@@ -473,9 +506,11 @@ then that node is not a child of this parent"
                                                 default-history-content))
                               context
                               ordered-enter-states)
+        final-context (signal-done-states final-context ordered-enter-states)
         configuration (:configuration final-context)
-        ordered-configuration (vec (enter-state-sort (:vec configuration)))]
-    final-context ))
+        ordered-configuration-vec (vec (enter-state-sort (:vec configuration)))]
+    (assoc final-context :configuration (assoc configuration :vec ordered-configuration-vec))))
+
 
 (defn execute-early-binding[context]
   (let [machine (:machine context)
@@ -491,14 +526,10 @@ then that node is not a child of this parent"
                   context)]
     (enter-states context [transition])))
 
-(defn is-atomic-state [state]
-  (and (or (= (:type state) :final)
-           (and (= :state (:type state))
-                (= 0 (count (:children state)))))))
 
 (defn get-atomic-states-from-configuration [context]
   (let [configuration (:configuration context)]
-    (filter is-atomic-state (:vec configuration))))
+    (filter is-atomic-state? (:vec configuration))))
 
 
 (defn state-seq-to-transition-seq [state-seq]
