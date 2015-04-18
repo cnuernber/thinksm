@@ -38,7 +38,8 @@
         id (if id-str (keyword id-str) nil)
         new-vestigial-state { :type type :id id :children [] :onentry [] 
                              :onexit [] :transitions [] :history [] 
-                             :parent (:id parent) }
+                             :parent (:id parent)
+                             :initial (util/space-delimited-string-to-keyword-array (:initial (:attrs node)))}
         new-state (reduce (fn [state child] (parse-state-child child state)) 
                           new-vestigial-state (:content node))
         new-children (conj (:children parent) new-state)]
@@ -111,7 +112,7 @@
             (parse-state-child child scxml))
           {:type :scxml :id :scxml_root :children [] 
            :datamodel-type (keyword (:datamodel (:attrs node))) 
-           :initial (keyword (:initial (:attrs node)))
+           :initial (util/space-delimited-string-to-keyword-array (:initial (:attrs node)))
            :binding (keyword (:binding (:attrs node)))
            } 
           (:content node)))
@@ -327,7 +328,7 @@
 
 (defn compute-entry-set-transition-targets [state-id-list enter-args context]
   (let [id-map (:id-state-map context)
-        state-list (map (fn [id] (id id-map)) state-id-list)]
+        state-list (filter identity (map (fn [id] (id id-map)) state-id-list))]
     (reduce (fn [args state] (add-descendant-states-to-enter state enter-args context)) enter-args state-list)))
 
 
@@ -341,19 +342,14 @@ then that node is not a child of this parent"
       [0 -1])))
 
 
-(defn is-descendant [child parent]
-  (let [child-doc-order (:document-order child)
-        [range-start range-end] (get-document-child-range parent)]
-        (if (and (<= child-doc-order range-end)
-                 (>= child-doc-order range-start))
-          true
-          false)))
-
+(defn is-descendant [child parent context]
+  (seq (filter (fn [ancestor] (= (:id parent) (:id ancestor))) 
+                     (get-proper-ancestors child nil context))))
 
 (defn non-parallel-or-parent [state context]
   (if (= (:type state)
          :parallel)
-    (non-parallel-or-parent (get-parent-state state context))
+    (non-parallel-or-parent (get-parent-state state context) context)
     state))
 
 
@@ -363,7 +359,7 @@ then that node is not a child of this parent"
         rhs-doc (:document-order rhs-state)
         lhs-less-than (< lhs-doc rhs-doc)
         [min-state max-state] (if lhs-less-than [lhs-state rhs-state] [rhs-state lhs-state])]
-    (if (is-descendant max-state min-state)
+    (if (is-descendant max-state min-state context)
       (non-parallel-or-parent min-state context)
       (find-LCCA-state (get-parent-state min-state context) max-state context))))
         
@@ -381,7 +377,7 @@ then that node is not a child of this parent"
         source (get-parent-state transition context)]
     (if (and is-internal
              (is-compound-state source)
-             (every? (fn [state] (is-descendant state source)) targets))
+             (every? (fn [state] (is-descendant state source context)) targets))
       source
       (find-LCCA (conj targets source) context))))
               
@@ -421,8 +417,9 @@ then that node is not a child of this parent"
   (let [transition (:initial state)]
     (if (= (:type transition) :transition)
       transition
-      (if (keyword? transition)
-        { :parent (:id state) :content [] :type :transition :targets [transition] }
+      (if (and (vector? transition)
+               (count transition))
+        { :parent (:id state) :content [] :type :transition :targets transition }
         (let [first-child (first (:children state))]
           (if first-child
             { :parent (:id state) :content [] :type :transition :targets [(:id first-child)] }
@@ -482,7 +479,7 @@ then that node is not a child of this parent"
         done-pa (filter (fn [parallel]
                           (let [parallel-children (filter 
                                                    (fn [state]
-                                                     (is-descendant state parallel))
+                                                     (is-descendant state parallel context))
                                                    config-atomics)]
                             (every? is-final-state? parallel-children)))
                         parallel-ancestors)]
@@ -592,7 +589,7 @@ Return a new configuration ordered set"
         second-domain (get-transition-domain second-trans context)]
     (or (= (:id first-domain)
            (:id second-domain))
-        (is-descendant second-domain first-domain))))
+        (is-descendant second-domain first-domain context))))
     
 
 (defn update-filtered-transitions[filtered-transitions incoming context]
@@ -637,18 +634,18 @@ conflict with each other at this point forcing a further filtering step"
   (select-transitions context (fn [transition] (evented-transition? transition event-name context))))
 
 
-(defn get-descendants [parents children]
+(defn get-descendants [parents children context]
   "if a child is a descendant of any of the parents then return the child
 must not change the order of children, simply remove children that do not
 fit criteria"
   (filter (fn [child]
-            (not-empty (filter (fn [parent] (is-descendant child parent)) parents)))
+            (not-empty (filter (fn [parent] (is-descendant child parent context)) parents)))
             children))
 
 
 (defn compute-exit-set [transitions context]
   (let [domains (map (fn [transition] (get-transition-domain transition context)) transitions)
-        descendants (get-descendants domains (:vec (:configuration context)))]
+        descendants (get-descendants domains (:vec (:configuration context)) context)]
     ;we know configuration is sorted in document order
     ;so we know that descendants must be.  For exiting states, however
     ;we really want exactly the reverse of document order.

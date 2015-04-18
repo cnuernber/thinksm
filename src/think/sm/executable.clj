@@ -207,7 +207,7 @@
                    (apply assoc evt-data 
                           (mapcat (fn [keyword]
                                     (if (contains? datamodel keyword)
-                                      [keyword (:datamodel keyword)]
+                                      [keyword (datamodel keyword)]
                                       (sling/throw+ (assoc context 
                                                            :errormsg (str "Invalid datamodel location " keyword) 
                                                            :errorevent "error.execution" ))))

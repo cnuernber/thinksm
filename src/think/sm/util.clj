@@ -57,7 +57,7 @@ second the new context"
   (let [attrs (:attrs xml-node)
         map-keys (keys attr-map)
         attr-key-value-pairs (filter identity 
-                                     (map (fn [key] 
+                                     (mapcat (fn [key] 
                                             (if (key attrs)
                                               (let [map-entry (key attr-map)
                                                     [item-type item-key] (if (vector? map-entry)
@@ -66,7 +66,7 @@ second the new context"
                                                 [item-key (parse-attr (key attrs) item-type)])
                                               nil))
                                           map-keys))]
-    (apply assoc retval (flatten attr-key-value-pairs))))
+    (apply assoc retval attr-key-value-pairs)))
 
 (defn parse-time-val [^String time-str]
   "positive double number immediately followed by either
