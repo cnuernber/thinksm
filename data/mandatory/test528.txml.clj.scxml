@@ -12,7 +12,7 @@
    </state>
    <final id="s02">
      <donedata>
-      <content expr="return"/>
+      <content expr="nil"/>
       </donedata>
      </final>
   </state>

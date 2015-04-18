@@ -17,15 +17,15 @@
    
 <state id="s2">
 	 <onexit>
-	 	<assign location="Var5" expr="(inc,Var5)"/>
+	 	<assign location="Var5" expr="(inc Var5)"/>
 	 	</onexit>
 
 <parallel id="p">
   <onexit>
-    <assign location="Var1" expr="(inc,Var1)"/>
+    <assign location="Var1" expr="(inc Var1)"/>
     </onexit>
   <transition event="foo" target="ps1">
-     <assign location="Var4" expr="(inc,Var4)"/>
+     <assign location="Var4" expr="(inc Var4)"/>
      </transition>
      
    <!-- make sure the transition on foo was actually taken --> 
@@ -34,12 +34,12 @@
   
  <state id="ps1">
    <onexit>
-   <assign location="Var2" expr="(inc,Var2)"/>
+   <assign location="Var2" expr="(inc Var2)"/>
    </onexit>
   </state>
   <state id="ps2">
    <onexit>
-   <assign location="Var3" expr="(inc,Var3)"/>
+   <assign location="Var3" expr="(inc Var3)"/>
    </onexit>
   </state>
 </parallel>

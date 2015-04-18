@@ -6,7 +6,7 @@
 
 <state id="s0">
   <onentry>
-   <assign location="Var1" expr="return"/>
+   <assign location="Var1" expr="nil"/>
    <raise event="foo"/>
    </onentry>
    <transition event="error.execution" target="pass"/> 

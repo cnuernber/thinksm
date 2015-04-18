@@ -28,7 +28,7 @@
 </state>
 
 <state id="s1">
-  <transition cond="Var1===Var2" target="fail"/>
+  <transition cond="(= Var1,Var2)&#xA;&#x9;" target="fail"/>
   <transition target="pass"/>
   </state>
 

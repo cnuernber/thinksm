@@ -7,7 +7,7 @@ possible access it there and assign its value to var1 --><scxml xmlns="http://ww
    </datamodel>  
      
  <state id="s0">
-   <transition cond="typeof Var2 === 'undefined' " target="s1"/>
+   <transition cond="(not Var2)" target="s1"/>
   <transition target="fail"/>
    </state>
    
@@ -18,7 +18,7 @@ possible access it there and assign its value to var1 --><scxml xmlns="http://ww
     <onentry>
     <assign location="Var1" expr="Var2"/>
     </onentry>
-    <transition cond="Var1===Var2" target="pass"/>
+    <transition cond="(= Var1,Var2)&#xA;&#x9;" target="pass"/>
     <transition target="fail"/>
   </state>
    

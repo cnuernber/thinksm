@@ -80,7 +80,9 @@
 ;552 needs an external file.  This won't always work and I am not going
 ;to support it at this time.  The others are test that require user checking
 ;of some sort
-(def test-number-blacklist [415 178 152 156 552])
+;277 requires failure the assignment which isn't possible in clojure without 
+;complete compilation failure.
+(def test-number-blacklist [415 178 152 156 552 277])
 (def test-path-blacklist (into #{} (map test-number-to-file-name test-number-blacklist)))
 
 (defn run-test-and-report-result [fname]

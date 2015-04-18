@@ -27,7 +27,7 @@ case where the invoke doesn't work correctly --><scxml xmlns="http://www.w3.org/
    </state>
 
 <state id="s1">
-  <transition cond="Var1===Var2" target="pass"/>
+  <transition cond="(= Var1,Var2)&#xA;&#x9;" target="pass"/>
   <transition target="fail"/>
   </state>
   

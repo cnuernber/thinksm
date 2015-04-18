@@ -35,7 +35,7 @@
  <transition cond="(=,Var1,0)" target="sh1"/>
  <transition cond="(=,Var1,1)" target="pass"/>
    <onexit>
-  	<assign location="Var1" expr="(inc,Var1)"/>
+  	<assign location="Var1" expr="(inc Var1)"/>
   	</onexit>
  </state>
  

@@ -11,10 +11,10 @@
     <raise event="bar"/>
     </onentry>
   <onexit>
-    <assign location="Var1" expr="(inc,Var1)"/>
+    <assign location="Var1" expr="(inc Var1)"/>
     </onexit>
   <transition event="foo" type="internal" target="s11">
-     <assign location="Var3" expr="(inc,Var3)"/>
+     <assign location="Var3" expr="(inc Var3)"/>
      </transition>
      
    <!-- make sure the transition on foo was actually taken --> 
@@ -23,7 +23,7 @@
   
  <state id="s11">
    <onexit>
-   <assign location="Var2" expr="(inc,Var2)"/>
+   <assign location="Var2" expr="(inc Var2)"/>
    </onexit>
   </state>
  </state>
