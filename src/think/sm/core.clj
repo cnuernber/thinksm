@@ -16,7 +16,9 @@
          add-ancestor-states-to-enter
          get-effective-target-states
          execute-datamodel-content 
-         get-atomic-states-from-configuration)
+         get-atomic-states-from-configuration
+         get-initial-transition )
+
 
 
 (defn is-state-type [type]
@@ -206,7 +208,8 @@
       :dm-context dm-context 
       :current-time current-time
       :send-ids send-ids 
-      :id-seed 1} ))
+      :id-seed 1
+      :session-id 1} ))
   ([machine dm-context]
      (create-context machine dm-context (System/currentTimeMillis))))
 
@@ -236,7 +239,7 @@
 (defn enter-parallel-state [state enter-args context]
   (let [[states-to-enter states-for-default-entry default-history-content] enter-args
         children (:children state)
-        not-entered (filter (fn [state] (not(in-ordered-set? states-to-enter state))) children) ;delicate naming on that one
+        not-entered (filter (fn [state] (empty? (filter (fn [child] (is-descendant child state context)) (:vec states-to-enter)))) children)
         enter-args [states-to-enter states-for-default-entry default-history-content]]
     (reduce (fn [enter-args state] (add-descendant-states-to-enter state enter-args context)) enter-args not-entered)))
 
@@ -253,7 +256,7 @@
         (union-ordered-set targets (get-effective-target-states (:transition state)))))
     (add-to-ordered-set targets state)))
 
-(defn get-state-initial-targets [state context]
+(defn get-state-initial-targets [state]
   (:targets (get-initial-transition state)))
 
 (defn id-list-to-state-list[id-seq context]
@@ -263,7 +266,7 @@
 
 (defn get-effective-target-states [item context]
   (let [initial-target-list (if (= (:type item) :state)
-                              (id-list-to-state-list (get-state-initial-targets item context) 
+                              (id-list-to-state-list (get-state-initial-targets item) 
                                                      context)
                               (id-list-to-state-list (:targets item) context))]
     (loop [retval (create-ordered-set)
@@ -380,16 +383,28 @@ then that node is not a child of this parent"
       (find-LCCA (conj targets source) context))))
               
 
-(defn compute-entry-set-transition[transition enter-args context]
-  (let [enter-args (compute-entry-set-transition-targets (:targets transition) enter-args context)
-        ancestor (get-transition-domain transition context)
-        targets (get-effective-target-states transition context)]
-    (reduce (fn [enter-args state] (add-ancestor-states-to-enter state ancestor enter-args context)) enter-args targets)))
-       
+(defn targetted-transitions [transitions]
+  (filter (fn [transition] (> (count (:targets transition)) 0)) transitions))
 
 (defn compute-entry-set [transitions enter-args context]
-  (reduce (fn [enter-args transition] (compute-entry-set-transition transition enter-args context)) enter-args transitions))
-
+  (let [targetted (targetted-transitions transitions)
+        targets (mapcat :targets targetted)
+        id-map (:id-state-map context)
+        ;first pass add those states directly that are targets
+        enter-args (reduce (fn [enter-args id] 
+                             (add-descendant-states-to-enter (id id-map) enter-args context))
+                           enter-args
+                           targets)]
+    (reduce (fn [enter-args transition] 
+              (let [domain (get-transition-domain transition context)]
+                (reduce (fn [enter-args id]
+                          (add-ancestor-states-to-enter (id id-map) domain enter-args context))
+                        enter-args
+                        (:targets transition))))
+            enter-args
+            targetted)))
+        
+        
 (defn enter-state-sort [state-seq]
   (sort-by :document-order state-seq))
 
@@ -451,13 +466,12 @@ then that node is not a child of this parent"
       context)))
 
 (defn do-enter-state[context state states-for-default-entry default-history-content]
-  (let [new-context (-> context
-                        (execute-datamodel-content state)
-                        (execute-onentry-content state)
-                        (execute-default-entry-content state states-for-default-entry)
-                        (execute-default-history-content state default-history-content))
-        configuration (add-to-ordered-set (:configuration new-context) state)]
-    (assoc new-context :configuration configuration)))
+  (-> (assoc context :configuration (add-to-ordered-set (:configuration context) state))
+      (execute-datamodel-content state)
+      (execute-onentry-content state)
+      (execute-default-entry-content state states-for-default-entry)
+      (execute-default-history-content state default-history-content)))
+
 
 ;this is done in a separate pass so that we generate only exactly the number of
 ;events we should
@@ -473,7 +487,7 @@ then that node is not a child of this parent"
                               final-states)
         parallel-ancestors (distinct (filter (fn [state] (= :parallel (:type state))) 
                                            all-ancestors))
-        config-atomics (get-atomic-states-from-configuration (:configuration context))
+        config-atomics (get-atomic-states-from-configuration context)
         done-pa (filter (fn [parallel]
                           (let [parallel-children (filter 
                                                    (fn [state]
@@ -515,10 +529,10 @@ Return a new configuration ordered set"
 (defn get-initial-configuration [context]
   (let [scxml (:machine context)
         transition (get-initial-transition scxml)
-        context (if (or (not (:binding context))
-                        (= :early (:binding context)))
+        context (if (or (not (:binding scxml))
+                        (= :early (:binding scxml)))
                   (execute-early-binding context)
-                  context)]
+                  (execute-datamodel-content context scxml))]
     (enter-states context [transition])))
 
 
@@ -642,7 +656,7 @@ fit criteria"
 
 
 (defn compute-exit-set [transitions context]
-  (let [domains (map (fn [transition] (get-transition-domain transition context)) transitions)
+  (let [domains (map (fn [transition] (get-transition-domain transition context)) (targetted-transitions transitions))
         descendants (get-descendants domains (:vec (:configuration context)) context)]
     ;we know configuration is sorted in document order
     ;so we know that descendants must be.  For exiting states, however

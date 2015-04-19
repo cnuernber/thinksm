@@ -40,7 +40,8 @@ that corresponds to the integers in the new machine"
   (println 
 "(fn [context]
   (let [datamodel (:datamodel context)
-       event (:event context)")
+       event (:event context)
+       _sessionid (:session-id context)")
   (doseq [var-name var-vec]
     (println (str
 "      " (name var-name) " (" var-name " datamodel)")))
@@ -54,6 +55,7 @@ that corresponds to the integers in the new machine"
   (with-out-str
     (let [[var-vec code-vec] dm-context
           var-vec (vec var-vec)]
+      (println "(defn in-state [context id] (id (:set (:configuration context))))")
       (println "[")
       (doseq [code-item code-vec]
         (output-dm-prefix var-vec)

@@ -9,7 +9,7 @@ is actually delivered.  The delayed <send> makes sure another event is generated
   
 <state id="s0">
   <onentry>
-  <assign location="Var1" expr="Var1 + Var2"/>
+  <assign location="Var1" expr="(str Var1,Var2)"/>
    <!-- goes to the external queue -->
    <send event="event2" targetexpr="Var1"/>
    <!-- to the internal queue -->

@@ -233,8 +233,10 @@
     
 
 (defmethod execute-specific-content :send [item context]
-  (let [target (get-item-or-item-expr item :target :targetexpr context)]
-    (if (and target (not (= "#_internal" target)))
+  (let [target (get-item-or-item-expr item :target :targetexpr context)
+        session_target (str "#_scxml_" (:session-id context))]
+    (if (and target (not (or (= "#_internal" target)
+                             (= session_target target))))
       (let [error-event (if (.startsWith target "#") "error.communication" "error.execution")]
         (sling/throw+ (assoc context 
                              :errormsg (str "Send target unsupported as of this time: " target) 

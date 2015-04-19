@@ -7,7 +7,7 @@ timeout also indicates failure  --><scxml xmlns="http://www.w3.org/2005/07/scxml
 <state id="s0" initial="s01">
   <onentry>
     <send event="timeout" delay="1s"/>
-    <if cond="In('s01')">
+    <if cond="(in-state context :s01)">
       <raise event="event1"/>
       </if>
     </onentry>
@@ -18,7 +18,7 @@ timeout also indicates failure  --><scxml xmlns="http://www.w3.org/2005/07/scxml
   
   <state id="s01">
     <onentry>
-     <if cond="In('s01')">
+     <if cond="(in-state context :s01)">
        <raise event="event2"/>
        </if>
        </onentry>

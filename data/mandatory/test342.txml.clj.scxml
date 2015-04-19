@@ -15,7 +15,7 @@
    </state>
    
 <state id="s1">
-  <transition cond="Var1===Var2" target="pass"/>
+  <transition cond="(= Var1,Var2)&#xA;&#x9;" target="pass"/>
    <transition target="fail"/>
    </state>
       

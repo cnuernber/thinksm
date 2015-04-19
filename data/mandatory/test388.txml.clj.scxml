@@ -9,7 +9,7 @@ state is s011, so we should get entering.s011, otherwise failure.--><scxml xmlns
        
 <state id="s0" initial="s01">
   <onentry>
-    <assign location="Var1" expr="(inc,Var1)"/>
+    <assign location="Var1" expr="(inc Var1)"/>
     </onentry>
     
   <!-- the first time through, go to s1, setting  a timer just in case something hangs -->

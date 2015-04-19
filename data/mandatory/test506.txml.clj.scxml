@@ -16,10 +16,10 @@ behaves like an external transition --><scxml xmlns="http://www.w3.org/2005/07/s
 
 <state id="s2" initial="s21">
   <onexit>
-    <assign location="Var1" expr="(inc,Var1)"/>
+    <assign location="Var1" expr="(inc Var1)"/>
     </onexit>
   <transition event="foo" type="internal" target="s2">
-     <assign location="Var3" expr="(inc,Var3)"/>
+     <assign location="Var3" expr="(inc Var3)"/>
      </transition>
      
    <!-- make sure the transition on foo was actually taken --> 
@@ -28,7 +28,7 @@ behaves like an external transition --><scxml xmlns="http://www.w3.org/2005/07/s
   
  <state id="s21">
    <onexit>
-   <assign location="Var2" expr="(inc,Var2)"/>
+   <assign location="Var2" expr="(inc Var2)"/>
    </onexit>
   </state>
 

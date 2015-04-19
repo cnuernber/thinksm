@@ -116,14 +116,14 @@
 
   <!-- this should return a value that cannot be assigned to a var.  -->
   <xsl:template match="//@conf:illegalExpr">
-    <xsl:attribute name="expr">return</xsl:attribute>
+    <xsl:attribute name="expr">nil</xsl:attribute>
   </xsl:template>
 
   <!-- this should add 1 to the value of the specified variable -->
   <xsl:template match="conf:incrementID">
     <assign xmlns="http://www.w3.org/2005/07/scxml">
       <xsl:attribute name="location">Var<xsl:value-of select="@id"/></xsl:attribute>
-      <xsl:attribute name="expr">(inc,Var<xsl:value-of select="@id"/>)</xsl:attribute>
+      <xsl:attribute name="expr">(inc Var<xsl:value-of select="@id"/>)</xsl:attribute>
     </assign>
   </xsl:template>
 
@@ -131,7 +131,7 @@
   <xsl:template match="conf:concatVars">
     <assign xmlns="http://www.w3.org/2005/07/scxml">
       <xsl:attribute name="location">Var<xsl:value-of select="@id1"/></xsl:attribute>
-      <xsl:attribute name="expr">Var<xsl:value-of select="@id1"/> + Var<xsl:value-of select="@id2"/></xsl:attribute>
+      <xsl:attribute name="expr">(str Var<xsl:value-of select="@id1"/>,Var<xsl:value-of select="@id2"/>)</xsl:attribute>
     </assign>
   </xsl:template>
   
@@ -330,7 +330,7 @@
     <xsl:attribute name="cond">
       <xsl:analyze-string select="."
 			  regex="([0-9]+)(\W+)([0-9]+)">
-	<xsl:matching-substring>Var<xsl:value-of select="regex-group(1)"/>===Var<xsl:value-of select="regex-group(3)"/>
+	<xsl:matching-substring>(= Var<xsl:value-of select="regex-group(1)"/>,Var<xsl:value-of select="regex-group(3)"/>)
 	</xsl:matching-substring>
       </xsl:analyze-string>
     </xsl:attribute>
@@ -455,7 +455,7 @@
   </xsl:template>
 
   <xsl:template match="//@conf:inState">
-    <xsl:attribute name="cond">In('<xsl:value-of select="."/>')</xsl:attribute>
+    <xsl:attribute name="cond">(in-state context :<xsl:value-of select="."/>)</xsl:attribute>
   </xsl:template>
 
   <!-- returns a value that cannot be converted into a Boolean -->
@@ -470,7 +470,7 @@
 
   <!-- return true if specified var has been created but is not bound -->
   <xsl:template match="//@conf:unboundVar">
-    <xsl:attribute name="cond">typeof Var<xsl:value-of select="." /> === 'undefined' </xsl:attribute>
+    <xsl:attribute name="cond">(not Var<xsl:value-of select="." />)</xsl:attribute>
   </xsl:template>
 
   <!-- true if system var has a value -->

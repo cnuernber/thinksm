@@ -14,10 +14,10 @@
   
  <state id="s2">
    <onexit>
-   <assign location="Var1" expr="(inc,Var1)"/>
+   <assign location="Var1" expr="(inc Var1)"/>
    </onexit>
    <transition event="foo">
-     <assign location="Var2" expr="(inc,Var2)"/>
+     <assign location="Var2" expr="(inc Var2)"/>
      </transition>
    <!-- make sure the transition on foo was actually taken --> 
   <transition event="bar" cond="(=,Var2,1)" target="s3"/>

@@ -9,7 +9,7 @@
     <send target="baz" event="event1"/>
     </onexit>
   <onexit>
-    <assign location="Var1" expr="(inc,Var1)"/>
+    <assign location="Var1" expr="(inc Var1)"/>
     </onexit>
     
 <transition target="s1"/>

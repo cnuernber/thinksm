@@ -9,7 +9,7 @@
     <send target="baz" event="event1"/>
     </onentry>
   <onentry>
-    <assign location="Var1" expr="(inc,Var1)"/>
+    <assign location="Var1" expr="(inc Var1)"/>
     </onentry>
     
   <transition cond="(=,Var1,2)" target="pass"/>

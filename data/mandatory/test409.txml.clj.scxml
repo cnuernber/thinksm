@@ -13,7 +13,7 @@ be raised.  Therefore the timeout should fire to indicate success   --><scxml xm
   
   <state id="s01" initial="s011">
     <onexit>
-     <if cond="In('s011')">
+     <if cond="(in-state context :s011)">
        <raise event="event1"/>
        </if>
        </onexit>

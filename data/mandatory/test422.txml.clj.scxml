@@ -13,7 +13,7 @@ in s11. So we should receive invokeS1, invokeS12, but not invokeS12.  Furthermor
  	 	<send event="timeout" delayexpr="&#34;2s&#34;"/>
  	 	</onentry>
  	   <transition event="invokeS1 invokeS12">
- 	   	<assign location="Var1" expr="(inc,Var1)"/>
+ 	   	<assign location="Var1" expr="(inc Var1)"/>
  	   	</transition>
  	   	<transition event="invokeS11" target="fail"/>
  	  

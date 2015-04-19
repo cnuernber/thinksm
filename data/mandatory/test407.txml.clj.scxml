@@ -5,7 +5,7 @@
        
 <state id="s0">
   <onexit>
-     <assign location="Var1" expr="(inc,Var1)"/>
+     <assign location="Var1" expr="(inc Var1)"/>
     </onexit>
   <transition target="s1"/>
 </state>
