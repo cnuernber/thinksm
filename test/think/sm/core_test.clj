@@ -133,3 +133,6 @@
 
 (defn run-individual-test[testnum]
   (run-test-and-report-result (test-number-to-file-name testnum)))
+
+
+(defn fn-pow-2 [f x n] (reduce (fn [x _] (f x)) x (range n)))

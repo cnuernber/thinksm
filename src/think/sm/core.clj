@@ -15,7 +15,8 @@
          add-descendant-states-to-enter
          add-ancestor-states-to-enter
          get-effective-target-states
-         execute-datamodel-content )
+         execute-datamodel-content 
+         get-atomic-states-from-configuration)
 
 
 (defn is-state-type [type]
@@ -253,10 +254,7 @@
     (add-to-ordered-set targets state)))
 
 (defn get-state-initial-targets [state context]
-  (let [initial-transition (:initial state)]
-    (if initial-transition
-      (:targets initial-transition)
-      (list (:id (first (:children state)))))))
+  (:targets (get-initial-transition state)))
 
 (defn id-list-to-state-list[id-seq context]
   (let [id-map (:id-state-map context)]
@@ -418,7 +416,7 @@ then that node is not a child of this parent"
     (if (= (:type transition) :transition)
       transition
       (if (and (vector? transition)
-               (count transition))
+               (> (count transition) 0))
         { :parent (:id state) :content [] :type :transition :targets transition }
         (let [first-child (first (:children state))]
           (if first-child
@@ -723,11 +721,33 @@ fit criteria"
       (select-evented-transitions (assoc context :event next-event) (get-event-name next-event))
       ())))
 
+(defn state-finished? [state context]
+  "A state itself is finished if any child of a compound state is finished
+or every child of a parallel state is finished.  Final states are finished."
+  (if (not (in-ordered-set? (:configuration context) state))
+    false
+  (let [finished-test (fn [child] (state-finished? child context))]
+    (if (= :parallel (:type state) )
+      (every? finished-test (:children state))
+      (if (= :final (:type state ))
+        true
+        (seq (filter finished-test (:children state))))))))
+    
+
+(defn state-machine-finished? [context]
+  (let [scxml (:machine context)]
+    (seq (filter (fn [state]
+                   (and (in-ordered-set? (:configuration context) state)
+                        (= :final (:type state))))
+                 (:children scxml)))))
+
+
 (defn state-machine-stable? [context]
-  (not (or (not-empty (select-eventless-transitions context))
-           (not-empty (:events context))
-           (not-empty (:external-events context))
-           (not-empty (:delayed-events context)))))
+  (or (state-machine-finished? context)
+      (not (or (not-empty (select-eventless-transitions context))
+               (not-empty (:events context))
+               (not-empty (:external-events context))
+               (not-empty (:delayed-events context))))))
 
 (defn step-until-stable [context]
   (loop [context context]
