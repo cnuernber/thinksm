@@ -2,7 +2,7 @@
 
      
  <state id="s0">
-   <transition cond="_name  === 'machineName'" target="s1"/>
+   <transition cond="(= _name &#34;machineName&#34;)" target="s1"/>
     <transition target="fail"/>
    </state>
    
@@ -10,7 +10,7 @@
    <onentry>
     <assign location="_name" expr="'otherName'"/>
     </onentry>
-   <transition cond="_name  === 'machineName'" target="pass"/>
+   <transition cond="(= _name &#34;machineName&#34;)" target="pass"/>
    <transition target="fail"/>
    </state>  
    

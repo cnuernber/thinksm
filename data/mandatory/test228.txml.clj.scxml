@@ -17,13 +17,13 @@
     </invoke>
 
   <transition event="done.invoke" target="s1">
-    <assign location="Var1" expr="_event.invokeid"/>
+    <assign location="Var1" expr="(:invokeid event)"/>
     </transition>
   <transition event="*" target="fail"/>
 </state>
 
 <state id="s1">
-  <transition cond="Var1=='foo'" target="pass"/>
+  <transition cond="(= Var1,&#34;foo&#34;)" target="pass"/>
   <transition target="fail"/>
 </state>
 

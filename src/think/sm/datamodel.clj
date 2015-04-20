@@ -12,22 +12,25 @@ we need to save into an array and place an integer in it's place"
                     (apply conj var-vec (filter identity (map node [:index :array :item])))
                     var-vec))]
       
-    (let [data-to-replace (first (filter identity (map (fn [keyword]
-                                                         (if (keyword node)
-                                                           [keyword (node keyword)]
-                                                           nil))
-                                                       [:expr :cond 
-                                                        :targetexpr 
-                                                        :eventexpr
-                                                        :typeexpr
-                                                        :delayexpr
-                                                        :sendidexpr])))
-          idx (count code-vec)]
-      (if data-to-replace
-        (let [[keyword code] data-to-replace
-              code-vec (conj code-vec data-to-replace)]
-          [(assoc node keyword idx) [var-vec code-vec]])
-        [node [var-vec code-vec]]))))
+    (let [data-seq (filter identity (map (fn [keyword]
+                                           (if (keyword node)
+                                             [keyword (node keyword)]
+                                             nil))
+                                         [:expr :cond 
+                                          :targetexpr 
+                                          :eventexpr
+                                          :typeexpr
+                                          :delayexpr
+                                          :sendidexpr]))
+          idx (count code-vec)
+          [node idx code-vec] (reduce (fn [[node idx code-vec] data-to-replace]
+                                        (let [[keyword code] data-to-replace]
+                                          [(assoc node keyword idx) 
+                                           (inc idx) 
+                                           (conj code-vec data-to-replace)]))
+                                      [node idx code-vec]
+                                      data-seq)]
+      [node [var-vec code-vec]])))
 
 
 (defn scan-node-for-datamodel-code [node]
@@ -41,7 +44,9 @@ that corresponds to the integers in the new machine"
 "(fn [context]
   (let [datamodel (:datamodel context)
        event (:event context)
-       _sessionid (:session-id context)")
+       _event event
+       _sessionid (:session-id context)
+       _name (:name (:machine context))")
   (doseq [var-name var-vec]
     (println (str
 "      " (name var-name) " (" var-name " datamodel)")))
@@ -66,7 +71,9 @@ that corresponds to the integers in the new machine"
 (defn create-datamodel-context [machine]
   (sling/try+
    (let [[machine scanned] (scan-node-for-datamodel-code machine)
-         function-vec (load-string (dm-code-to-string scanned))]
+         code (dm-code-to-string scanned)
+         ;_ (println code)
+         function-vec (load-string code)]
      [machine function-vec])
    (catch Exception e (sling/throw+ { :type :compilation-failure :exception e }))))
 

@@ -14,7 +14,7 @@
      <assign location="_sessionid" expr="27"/>
    </onentry>
 
-   <transition event="foo" cond="Var1==_sessionid" target="s1"/>
+   <transition event="foo" cond="(= Var1,_sessionid)" target="s1"/>
    <transition event="*" target="fail"/>
    </state>
    
@@ -23,7 +23,7 @@
      <assign location="Var2" expr="_event"/>
      <assign location="_event" expr="27"/>
     </onentry>
-   <transition cond="Var2==_event" target="s2"/>
+   <transition cond="(= Var2,_event)" target="s2"/>
    <transition target="fail"/>
    </state>  
    
@@ -32,7 +32,7 @@
      <assign location="Var3" expr="_name"/>
      <assign location="_name" expr="27"/>
     </onentry>
-   <transition cond="Var3==_name" target="s3"/>
+   <transition cond="(= Var3,_name)" target="s3"/>
    <transition target="fail"/>
    </state> 
 
@@ -42,7 +42,7 @@
      <assign location="Var4" expr="_ioprocessors"/>
      <assign location="_ioprocessors" expr="27"/>
     </onentry>
-   <transition cond="Var4==_ioprocessors" target="pass"/>
+   <transition cond="(= Var4,_ioprocessors)" target="pass"/>
    <transition target="fail"/>
    </state>  
    

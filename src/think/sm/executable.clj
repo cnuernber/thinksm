@@ -73,7 +73,7 @@
     (assoc stmt :children (parse-executable-content-children node))))
 
 (defmethod parse-executable-content :cancel [node]
-  (util/parse-attributes node {:type :cancel} { :sendid :keyword :sendidexpr :string }))
+  (util/parse-attributes node {:type :cancel} { :sendid :string :sendidexpr :string }))
 
 (defmethod parse-executable-content :default [node]
     (sling/throw+ { :type :parse-error :xml-node node :reason "Unrecognized executable content" }))
@@ -85,11 +85,35 @@
   (println (dm/execute-expression context (:expr item)))
   context)
 
+(def scxml-event-processor "http://www.w3.org/TR/scxml/#SCXMLEventProcessor")
+
+(defn create-event[evt is-internal]
+  (let [evt (if (string? evt) { :name evt } evt)
+        evt-type (if (contains? evt :type) 
+                   (:type evt)
+                   (if is-internal
+                     "internal"
+                     "external"))
+        origin-type (if (contains? evt :origintype)
+                      (:origintype evt)
+                      (if is-internal
+                        nil
+                        scxml-event-processor))]
+    (assoc evt :origintype origin-type :type evt-type)))
+
+
+(defn queue-event [evt context is-internal]
+  (let [queue (if is-internal :events :external-events)
+        evt (create-event evt is-internal)]
+    (assoc context queue 
+           (conj (queue context) evt))))
+
 
 (defmethod execute-specific-content :raise [item context]
   (let [old-events (:events context)
         new-events (conj old-events (:event item))]
-    (assoc context :events new-events)))
+    (queue-event (:event item) context true)))
+
 
 (defmethod execute-specific-content :if [item context]
   (let [content (:children item)]
@@ -152,7 +176,7 @@
  
 (defn add-delayed-event[context event delay]
   (let [delayed-events (:delayed-events context)
-        delayed-events (conj delayed-events { :delay delay :send-id (:send-id event) 
+        delayed-events (conj delayed-events { :delay delay
                                              :start-time (:current-time context) 
                                              :event event })]
     (assoc context :delayed-events delayed-events)))
@@ -188,9 +212,8 @@
 (defn execute-send-param [param context]
     [ (:name param) (dm/execute-expression context (:expr param)) ])
 
-(def scxml-event-processor "http://www.w3.org/TR/scxml/#SCXMLEventProcessor")
 
-(defn build-send-event [item context send-id]
+(defn build-send-event [item context send-id target]
   (let [evt-type (if (or (:event-type item)
                          (:typeexpr item))
                    (get-item-or-item-expr item :event-type :typeexpr context)
@@ -217,19 +240,25 @@
       (sling/throw+ (assoc context 
                            :errormsg (str "Send type unsupported as of this time: " evt-type) 
                            :errorevent "error.execution" ))
-      (assoc {} :name evt-name :data evt-data :send-id send-id :origintype evt-type ))))
+      (create-event 
+       (assoc {} :name evt-name :data evt-data :sendid (if send-id (name send-id)  nil)
+              :origintype evt-type :origin target )
+       (= evt-type "#_internal")))))
 
 
 (defn get-or-generate-send-id [item context]
-  (if (:id item)
-    [context (:id item)]
-    (let [[new-id id-seed send-ids] (util/generate-unique-id 
-                                     "send" (:id-seed context) (:send-ids context))
-          datatable (if (:idlocation item) 
-                      (assoc (:datamodel context) (:idlocation item) new-id)
-                      (:datamodel context))
-          context (assoc context :id-seed id-seed :send-ids send-ids :datamodel datatable)]
-      [context new-id])))
+  (if (and (not (:id item))
+           (not (:idlocation item)))
+    [context nil]
+    (if (:id item)
+      [context (:id item)]
+      (let [[new-id id-seed send-ids] (util/generate-unique-id 
+                                       "send" (:id-seed context) (:send-ids context))
+            datatable (if (:idlocation item) 
+                        (assoc (:datamodel context) (:idlocation item) new-id)
+                        (:datamodel context))
+            context (assoc context :id-seed id-seed :send-ids send-ids :datamodel datatable)]
+        [context new-id]))))
     
 
 (defmethod execute-specific-content :send [item context]
@@ -242,7 +271,7 @@
                              :errormsg (str "Send target unsupported as of this time: " target) 
                              :errorevent error-event )))
       (let [[context id-for-event] (get-or-generate-send-id item context)
-            event (build-send-event item context id-for-event)
+            event (build-send-event item context id-for-event session_target)
             delay-str (get-item-or-item-expr item :delay :delayexpr context)
             delay-ms (if delay-str (util/parse-time-val delay-str) 0)
             event-queue (if (= target "#_internal") :events :external-events)]
@@ -252,13 +281,13 @@
                                :errorevent "error.send" ))
           (if (= 0 delay-ms)
             (assoc context event-queue (conj (event-queue context) event))
-            (let [[context id-for-event] (get-or-generate-send-id item context)]
-              (add-delayed-event context event delay-ms))))))))
+            (add-delayed-event context event delay-ms)))))))
+
 
 (defmethod execute-specific-content :cancel [item context] 
-  (let [send-id (keyword (get-item-or-item-expr item :sendid :sendidexpr context))
+  (let [send-id (get-item-or-item-expr item :sendid :sendidexpr context)
         delayed-events (filter (fn [delayed] 
-                                 (not (= send-id (:send-id (:event delayed)))))
+                                 (not (= send-id (:sendid (:event delayed)))))
                                  (:delayed-events context))]
     (assoc context :delayed-events delayed-events)))
     

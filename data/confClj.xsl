@@ -183,24 +183,24 @@
   <!-- exprs that return the value of the event fields -->
 
   <xsl:template match="//@conf:eventName">
-    <xsl:attribute name="expr">_event.name</xsl:attribute>
+    <xsl:attribute name="expr">(:name event)</xsl:attribute>
   </xsl:template>
 
   <xsl:template match="//@conf:eventType">
-    <xsl:attribute name="expr">_event.type</xsl:attribute>
+    <xsl:attribute name="expr">(:type event)</xsl:attribute>
   </xsl:template>
 
   <xsl:template match="//@conf:eventSendid">
-    <xsl:attribute name="expr">_event.sendid</xsl:attribute>
+    <xsl:attribute name="expr">(:sendid event)</xsl:attribute>
   </xsl:template>
 
   <xsl:template match="//@conf:eventField">
-    <xsl:attribute name="expr">_event.<xsl:value-of select="."/></xsl:attribute>
+    <xsl:attribute name="expr">(:<xsl:value-of select="."/> event)</xsl:attribute>
   </xsl:template>
 
   <!-- returns the raw message structure as a string -->
   <xsl:template match="//@conf:eventRaw">
-    <xsl:attribute name="expr">_event.raw</xsl:attribute>
+    <xsl:attribute name="expr">(:raw evevnt)</xsl:attribute>
   </xsl:template>
 
 
@@ -211,11 +211,11 @@
 
   <!-- returns the value of a KVP specified by <param> from  _event.data  -->
   <xsl:template match="//@conf:eventDataParamValue">
-    <xsl:attribute name="expr">_event.data.<xsl:value-of select="."/></xsl:attribute>
+    <xsl:attribute name="expr">(:<xsl:value-of select="."/> (:data event))</xsl:attribute>
   </xsl:template>
   <!-- returns the value of a KVP specified by <param> from  _event.data  -->
   <xsl:template match="//@conf:eventDataNamelistValue">
-    <xsl:attribute name="expr">_event.data.Var<xsl:value-of select="."/></xsl:attribute>
+    <xsl:attribute name="expr">(:Var<xsl:value-of select="."/> (:data event))</xsl:attribute>
   </xsl:template>
 
   <!-- returns the location of the scxml event i/o processor -->
@@ -352,10 +352,7 @@
     <xsl:attribute name="cond">
       <xsl:analyze-string select="."
 			  regex="([0-9]+)([=&lt;&gt;]=?)(.*)">
-	<xsl:matching-substring>Var<xsl:value-of select="regex-group(1)"/><xsl:variable name="op"><xsl:value-of select="regex-group(2)"/></xsl:variable>
-	<xsl:choose>
-	  <xsl:when test="$op='='">==</xsl:when>
-	<xsl:otherwise><xsl:value-of select="$op"/></xsl:otherwise></xsl:choose>'<xsl:value-of select="regex-group(3)"/>'</xsl:matching-substring>
+	<xsl:matching-substring>(<xsl:value-of select="regex-group(2)"/> Var<xsl:value-of select="regex-group(1)"/>,"<xsl:value-of select="regex-group(3)"/>")</xsl:matching-substring>
       </xsl:analyze-string>
     </xsl:attribute>
   </xsl:template>
@@ -376,7 +373,7 @@
 
   <!-- test that the event's name fieldhas the value specified -->
   <xsl:template match="//@conf:eventNameVal">
-    <xsl:attribute name="cond">_event.name == <xsl:text>'</xsl:text><xsl:value-of select="."/><xsl:text>'</xsl:text>
+    <xsl:attribute name="cond">(= (:name event)<xsl:text>"</xsl:text><xsl:value-of select="."/><xsl:text>")</xsl:text>
     </xsl:attribute>
 
   </xsl:template>
@@ -407,10 +404,7 @@
     <xsl:attribute name="cond">
       <xsl:analyze-string select="."
 			  regex="([0-9]+)([=&lt;&gt;]=?)(.*)">
-	<xsl:matching-substring>Var<xsl:value-of select="regex-group(1)"/><xsl:variable name="op"><xsl:value-of select="regex-group(2)"/></xsl:variable>
-	<xsl:choose>
-	  <xsl:when test="$op='='">==</xsl:when>
-	<xsl:otherwise><xsl:value-of select="$op"/></xsl:otherwise></xsl:choose><xsl:value-of select="regex-group(3)"/></xsl:matching-substring>
+	<xsl:matching-substring>(<xsl:value-of select="regex-group(2)"/> Var<xsl:value-of select="regex-group(1)"/>,<xsl:value-of select="regex-group(3)"/>)</xsl:matching-substring>
       </xsl:analyze-string>
     </xsl:attribute>
   </xsl:template>
@@ -423,16 +417,16 @@
 
   <!-- test that _event.data is set to the value specified by <conf:someInlineVal> -->
   <xsl:template match="//@conf:eventdataSomeVal">
-    <xsl:attribute name="cond">_event.data == 123</xsl:attribute>
+    <xsl:attribute name="cond">(= 123 (:data event))</xsl:attribute>
   </xsl:template>
 
   <xsl:template match="//@conf:emptyEventData">
-    <xsl:attribute name="cond">typeof _event.data === 'undefined'</xsl:attribute>
+    <xsl:attribute name="cond">(:data event)</xsl:attribute>
   </xsl:template>
 
   <!-- return true if the _name system var has the specified quoted value -->
   <xsl:template match="//@conf:nameVarVal">
-    <xsl:attribute name="cond">_name  === '<xsl:value-of select="."/>'</xsl:attribute>
+    <xsl:attribute name="cond">(= _name "<xsl:value-of select="."/>")</xsl:attribute>
   </xsl:template>
 
   <!-- return true if first var's value is a prefix of the second var's value.  Input has form "n m" where n and m are ints.-->
@@ -480,7 +474,7 @@
 
   <!-- true if id does not have a value -->
   <xsl:template match="//@conf:noValue">
-    <xsl:attribute name="cond">!Var<xsl:value-of select="." /></xsl:attribute>
+    <xsl:attribute name="cond">(not Var<xsl:value-of select="." />)</xsl:attribute>
   </xsl:template>
 
   <!-- always returns true -->
@@ -505,7 +499,7 @@
 
   <!-- returns true if specified field of _event has no value -->
   <xsl:template match="//@conf:eventFieldHasNoValue">
-    <xsl:attribute name="cond">typeof _event.<xsl:value-of select="." /> === 'undefined' </xsl:attribute>
+    <xsl:attribute name="cond">(not (:<xsl:value-of select="." /> event))</xsl:attribute>
   </xsl:template>
 
   <!-- true if the language of _event matches the processor's datamodel -->
@@ -540,8 +534,8 @@
   <xsl:template match="conf:sendToSender">
     <send xmlns="http://www.w3.org/2005/07/scxml">
       <xsl:attribute name="event"><xsl:value-of select="@name" /></xsl:attribute>
-      <xsl:attribute name="targetexpr">_event.origin</xsl:attribute>
-      <xsl:attribute name="typeexpr">_event.origintype</xsl:attribute>
+      <xsl:attribute name="targetexpr">(:origin event)</xsl:attribute>
+      <xsl:attribute name="typeexpr">(:origintype event)</xsl:attribute>
     </send>
   </xsl:template>
 
@@ -588,7 +582,7 @@
   <xsl:template match="conf:extendArray">
     <assign xmlns="http://www.w3.org/2005/07/scxml">
       <xsl:attribute name="location">Var<xsl:value-of select="@id"/></xsl:attribute>
-      <xsl:attribute name="expr">[].concat(Var<xsl:value-of select="@id"/>, [4])</xsl:attribute>
+      <xsl:attribute name="expr">(conj Var<xsl:value-of select="@id"/>, 4)</xsl:attribute>
     </assign>
   </xsl:template>
 

@@ -21,7 +21,7 @@ case where the invoke doesn't work correctly --><scxml xmlns="http://www.w3.org/
       </content>
     </invoke>
        <transition event="event1" target="s1">
-         <assign location="Var2" expr="_event.invokeid"/>
+         <assign location="Var2" expr="(:invokeid event)"/>
          </transition>
        <transition event="event0" target="fail"/>
    </state>

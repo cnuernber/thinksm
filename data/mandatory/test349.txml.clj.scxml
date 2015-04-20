@@ -9,7 +9,7 @@
      <send type="http://www.w3.org/TR/scxml/#SCXMLEventProcessor" event="s0Event"/>
      </onentry>
   <transition event="s0Event" target="s2">
-    <assign location="Var1" expr="_event.origin"/>
+    <assign location="Var1" expr="(:origin event)"/>
     </transition>
   <transition event="*" target="fail"/>
 

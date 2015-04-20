@@ -27,14 +27,14 @@ this process uses the scxml processor to send the message to it, otherwise failu
             </onentry>
    
            <transition event="parentToChild" target="sub1">
-           <assign location="Var2" expr="_event.origintype"/>
+           <assign location="Var2" expr="(:origintype event)"/>
           </transition>
          </state>
           <state id="sub1">
-            <transition cond="Var2=='http://www.w3.org/TR/scxml/#SCXMLEventProcessor'" target="subFinal">
+            <transition cond="(= Var2,&#34;http://www.w3.org/TR/scxml/#SCXMLEventProcessor&#34;)" target="subFinal">
              <send target="#_parent" event="success"/>
                 </transition>
-            <transition cond="Var2=='scxml'" target="subFinal">
+            <transition cond="(= Var2,&#34;scxml&#34;)" target="subFinal">
              <send target="#_parent" event="success"/>
               </transition>
             <transition target="subFinal">
@@ -48,16 +48,16 @@ this process uses the scxml processor to send the message to it, otherwise failu
     
     <state id="s01">
     <transition event="childRunning" target="s02">
-       <assign location="Var1" expr="_event.origintype"/>
+       <assign location="Var1" expr="(:origintype event)"/>
        </transition>
    </state>
     
     <state id="s02">
 
-     <transition cond="Var1=='http://www.w3.org/TR/scxml/#SCXMLEventProcessor'" target="s03">
+     <transition cond="(= Var1,&#34;http://www.w3.org/TR/scxml/#SCXMLEventProcessor&#34;)" target="s03">
         <send target="#_foo" event="parentToChild"/>
         </transition>
-    <transition cond="Var1=='scxml'" target="s03">
+    <transition cond="(= Var1,&#34;scxml&#34;)" target="s03">
         <send target="#_foo" event="parentToChild"/>
         </transition>
  

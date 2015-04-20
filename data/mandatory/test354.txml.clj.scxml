@@ -14,8 +14,8 @@ and that correct values are used --><scxml xmlns="http://www.w3.org/2005/07/scxm
       </send> 
      </onentry>
   <transition event="event1" target="s1">
-    <assign location="Var2" expr="_event.data.Var1"/>
-    <assign location="Var3" expr="_event.data.param1"/>
+    <assign location="Var2" expr="(:Var1 (:data event))"/>
+    <assign location="Var3" expr="(:param1 (:data event))"/>
     </transition>
   <transition event="*" target="fail">
     </transition>
@@ -40,7 +40,7 @@ and that correct values are used --><scxml xmlns="http://www.w3.org/2005/07/scxm
       <content>123</content>
       </send>
      </onentry>
-  <transition event="event2" cond="_event.data == 123" target="pass"/>
+  <transition event="event2" cond="(= 123 (:data event))" target="pass"/>
   <transition event="*" target="fail"/>
 
 </state>

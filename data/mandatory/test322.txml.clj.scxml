@@ -22,7 +22,7 @@ be assigned to  --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="ht
    
  <state id="s2">
  
-   <transition cond="Var1==_sessionid" target="pass"/>
+   <transition cond="(= Var1,_sessionid)" target="pass"/>
    <transition target="fail"/>
    </state>  
    

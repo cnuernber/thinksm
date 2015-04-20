@@ -14,7 +14,7 @@ inspection.) --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http:
      </onentry>
 
   <transition event="event1" target="final">
-   <log label="_event " expr="_event.raw"/>
+   <log label="_event " expr="(:raw evevnt)"/>
    </transition>
   <transition event="*" target="fail"/>
  

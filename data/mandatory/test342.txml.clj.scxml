@@ -9,7 +9,7 @@
      <send eventexpr="Var1"/>
    </onentry>
    <transition event="foo" target="s1">
-      <assign location="Var2" expr="_event.name"/>
+      <assign location="Var2" expr="(:name event)"/>
       </transition>
       <transition event="*" target="fail"/> 
    </state>

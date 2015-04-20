@@ -10,7 +10,7 @@ the iteration behavior. --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:
 <state id="s0">
   <onentry>
   <foreach item="Var3" array="Var1">
-    <assign location="Var1" expr="[].concat(Var1, [4])"/>
+    <assign location="Var1" expr="(conj Var1, 4)"/>
     <assign location="Var2" expr="(inc Var2)"/>
     </foreach>
    </onentry>

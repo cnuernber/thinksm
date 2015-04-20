@@ -19,13 +19,13 @@ must check if they are the same and report his result.   --><scxml xmlns="http:/
               <send event="timeout" delay="2s"/>
              </onentry> 
            <transition event="childToParent" target="subFinal">
-                  <log label="name is " expr="_event.name"/>
-                  <log label="type is " expr="_event.type"/>
-                  <log label="sendid is " expr="_event.sendid"/>
-                 <log label="origin is " expr="_event.origin"/>
-                 <log label="origintype is " expr="_event.origintype"/>
-                 <log label="invokeid is " expr="_event.invokeid"/>
-                 <log label="data is " expr="_event.data"/>
+                  <log label="name is " expr="(:name event)"/>
+                  <log label="type is " expr="(:type event)"/>
+                  <log label="sendid is " expr="(:sendid event)"/>
+                 <log label="origin is " expr="(:origin event)"/>
+                 <log label="origintype is " expr="(:origintype event)"/>
+                 <log label="invokeid is " expr="(:invokeid event)"/>
+                 <log label="data is " expr="(:data event)"/>
               </transition>
           <transition event="*" target="subFinal"/>  
           </state>
@@ -38,13 +38,13 @@ must check if they are the same and report his result.   --><scxml xmlns="http:/
  
   <state id="s01">
   <transition event="childToParent" target="s02">
-    <log label="name is " expr="_event.name"/>
-    <log label="type is " expr="_event.type"/>
-    <log label="sendid is " expr="_event.sendid"/>
-    <log label="origin is " expr="_event.origin"/>
-    <log label="origintype is " expr="_event.origintype"/>
-    <log label="invokeid is " expr="_event.invokeid"/>
-    <log label="data is " expr="_event.data"/>
+    <log label="name is " expr="(:name event)"/>
+    <log label="type is " expr="(:type event)"/>
+    <log label="sendid is " expr="(:sendid event)"/>
+    <log label="origin is " expr="(:origin event)"/>
+    <log label="origintype is " expr="(:origintype event)"/>
+    <log label="invokeid is " expr="(:invokeid event)"/>
+    <log label="data is " expr="(:data event)"/>
     </transition>
   <transition event="*" target="fail"/>
  </state>

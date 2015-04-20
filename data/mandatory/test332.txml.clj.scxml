@@ -12,7 +12,7 @@
    </onentry>
    <transition event="error" target="s1">
    <!-- get the sendid out of the error event -->
-       <assign location="Var2" expr="_event.sendid"/>
+       <assign location="Var2" expr="(:sendid event)"/>
        </transition>
       <transition event="*" target="fail"/> 
    </state>

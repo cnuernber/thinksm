@@ -6,7 +6,7 @@
     </onentry>
 
     
-  <transition event="foo" cond="_event.name == 'foo'" target="pass"/>
+  <transition event="foo" cond="(= (:name event)&#34;foo&#34;)" target="pass"/>
   <transition event="foo" target="fail"/>
 
 </state>

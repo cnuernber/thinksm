@@ -16,7 +16,7 @@ _event.data.  --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http
      
      <!-- if we get this event, we succeed -->
   <transition event="test" target="s1">
-    <assign location="Var1" expr="_event.data.param1"/>
+    <assign location="Var1" expr="(:param1 (:data event))"/>
       </transition>
   <transition event="*" target="fail"/>
  </state>

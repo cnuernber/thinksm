@@ -17,7 +17,8 @@
          get-effective-target-states
          execute-datamodel-content 
          get-atomic-states-from-configuration
-         get-initial-transition )
+         get-initial-transition
+         is-descendant )
 
 
 
@@ -117,6 +118,7 @@
            :datamodel-type (keyword (:datamodel (:attrs node))) 
            :initial (util/space-delimited-string-to-keyword-array (:initial (:attrs node)))
            :binding (keyword (:binding (:attrs node)))
+           :name (:name (:attrs node))
            } 
           (:content node)))
 
@@ -420,8 +422,8 @@ then that node is not a child of this parent"
     (catch map? context 
             (let [msg (:errormsg context)
                   evt (:errorevent context)
-                  context (assoc context :errormsg nil :errorevent nil 
-                                 :events (conj (:events context) evt))]
+                  context (assoc context :errormsg nil :errorevent nil)
+                  context (exe/queue-event { :name evt :type "platform" } context true)]
               (println (str "Error during execution: " msg))
               context))))
         
@@ -711,6 +713,9 @@ fit criteria"
     (if next-event
       (let [events (pop events)
             event-name (get-event-name next-event)
+            next-event (if (string? next-event)
+                         { :name next-event }
+                         next-event)
             context (assoc context event-queue events :event next-event)
             transitions (select-evented-transitions context event-name)
             context (if (not-empty transitions) (microstep context transitions) context)]
@@ -719,7 +724,9 @@ fit criteria"
 
 (defn step-state-machine 
   ([context current-time]
-   (let [context (exe/update-delayed-events (assoc context :event nil) current-time)
+   (let [context (exe/update-delayed-events 
+                  (assoc context :event nil :current-time current-time) 
+                  current-time)
          eventless (select-eventless-transitions context)]
      (if (not-empty eventless)
        (microstep context eventless)

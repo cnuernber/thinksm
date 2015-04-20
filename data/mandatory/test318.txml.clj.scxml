@@ -14,9 +14,9 @@
   <onentry>
     <raise event="bar"/>
     <!-- _event should still be bound to 'foo' at this point -->
-    <assign location="Var1" expr="_event.name"/>
+    <assign location="Var1" expr="(:name event)"/>
     </onentry>
-   <transition cond="Var1=='foo'" target="pass"/> 
+   <transition cond="(= Var1,&#34;foo&#34;)" target="pass"/> 
    <transition target="fail"/>
    </state>
    

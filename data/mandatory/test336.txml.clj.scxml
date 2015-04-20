@@ -6,7 +6,7 @@ this case it's the same session, so if we get bar we succeed --><scxml xmlns="ht
      <send event="foo"/>
    </onentry>
    <transition event="foo" target="s1">
-     <send event="bar" targetexpr="_event.origin" typeexpr="_event.origintype"/>
+     <send event="bar" targetexpr="(:origin event)" typeexpr="(:origintype event)"/>
       </transition>
       <transition event="*" target="fail"/> 
    </state>
