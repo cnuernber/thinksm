@@ -107,6 +107,15 @@
                           (:content child))]
     (assoc state :datamodel data-defs)))
 
+(defmethod parse-state-child :history [node parent-state]
+  (let [history (reduce (fn [hist child]
+                           (parse-state-child child hist))
+                         { :type :history :history-type (keyword (:type (:attrs node)))
+                          :id (keyword (:id (:attrs node)))
+                          :parent (:id parent-state) }
+                         (:content node))]
+    (assoc parent-state :history (conj (:history parent-state) history))))
+
 (defmethod parse-state-child :default [child state]
   (sling/throw+ { :type :parse-error :xml-node child :reason "Unrecognized child in parse state" }))
                    
@@ -176,7 +185,7 @@
 
 
 (defn state-children [machine-node]
-  (filter is-state-machine-node (:children machine-node)))
+  (filter is-state-machine-node (mapcat machine-node [:history :children])))
 
 
 (defn dfs-state-walk [machine-node]
@@ -186,7 +195,8 @@
 (defn initial-machine-walker [item context]
   (let [[idx send-ids] context]
     (if (is-state-type (:type item))
-      [(assoc item :document-order idx) [(inc idx) send-ids]]
+      (let [item (assoc item :document-order idx)]
+        [item [(inc idx) send-ids]])
       (if (= :send (:type item))
         (let [send-ids (if (:id item) (conj send-ids (:id item)) send-ids)]
           [item [idx send-ids]])
@@ -195,10 +205,11 @@
 
 (defn create-context 
   ([machine dm-context current-time]
-   (let [[machine [state-count send-ids]] (util/walk-item machine [1 #{}] initial-machine-walker)
-         id-state-map (reduce (fn [map node] (assoc map (:id node) node)) 
-                              {} 
-                              (dfs-state-walk machine))]
+   (let [[machine [state-count send-ids]]
+          (util/walk-item machine [1 #{}] initial-machine-walker)
+          id-state-map (reduce (fn [id-map state] (assoc id-map (:id state) state))
+                               {}
+                               (dfs-state-walk machine))]
      { :machine machine 
       :configuration (add-to-ordered-set (create-ordered-set) machine);which states are we in
       :history {} ;saved history from exit from history states
@@ -213,7 +224,10 @@
       :id-seed 1
       :session-id 1} ))
   ([machine dm-context]
-     (create-context machine dm-context (System/currentTimeMillis))))
+     (create-context machine dm-context (System/currentTimeMillis)))
+  ([machine]
+   (let [[machine dm-context] (dm/create-datamodel-context machine)]
+     (create-context machine dm-context))))
 
 (defn get-parent-state [state-or-transition context]
   ((:parent state-or-transition) (:id-state-map context)))
@@ -245,9 +259,17 @@
         enter-args [states-to-enter states-for-default-entry default-history-content]]
     (reduce (fn [enter-args state] (add-descendant-states-to-enter state enter-args context)) enter-args not-entered)))
 
+
+(defn id-list-to-state-list[id-seq context]
+  (let [id-map (:id-state-map context)]
+    (mapv (fn [id] (id id-map)) id-seq)))
+
 ;worry about this when the time comes.
-(defn get-history-state-initial-data [state]
-  [() []])
+(defn get-history-state-initial-data [state context]
+  (if (> (count (:transitions state)) 0)
+    (let [initial-trans ((:transitions state) 0)]
+      [(id-list-to-state-list (:targets initial-trans) context) (:content initial-trans)])
+    [() []]))
 
 
 (defn add-effective-target-state[state targets context]
@@ -255,29 +277,26 @@
     (let [context-history ((:id state) (:history context))]
       (if (not-empty context-history)
         (union-ordered-set targets context-history)
-        (union-ordered-set targets (get-effective-target-states (:transition state)))))
+        (union-ordered-set targets 
+                           (get-effective-target-states ((:transitions state) 0) context))))
     (add-to-ordered-set targets state)))
 
 (defn get-state-initial-targets [state]
   (:targets (get-initial-transition state)))
 
-(defn id-list-to-state-list[id-seq context]
-  (let [id-map (:id-state-map context)]
-    (mapv (fn [id] (id id-map)) id-seq)))
          
 
 (defn get-effective-target-states [item context]
   (let [initial-target-list (if (= (:type item) :state)
                               (id-list-to-state-list (get-state-initial-targets item) 
                                                      context)
-                              (id-list-to-state-list (:targets item) context))]
-    (loop [retval (create-ordered-set)
-           state (first initial-target-list)
-           initial-target-list (rest initial-target-list)]
-      (if state
-        (recur (add-effective-target-state state retval context) (first initial-target-list) (rest initial-target-list))
-        (:vec retval)))))
-       
+                              (id-list-to-state-list (:targets item) context))
+        targets (reduce (fn [retval state]
+                          (add-effective-target-state state retval context))
+                        (create-ordered-set)
+                        initial-target-list)]
+    (:vec targets)))
+    
 
 (defn add-descendant-states-to-enter [state enter-args context]
   (let [[states-to-enter states-for-default-entry default-history-content] enter-args]
@@ -285,9 +304,9 @@
       ;entering a history state
       (let [context-history ((:id state) (:history context))
             ancestor (get-parent-state state context)]
-        (if (not-empty context-history)
+        (if context-history
           (add-descendant-and-ancestor-states context-history ancestor enter-args context)
-          (let [[state-seq content] (get-history-state-initial-data state)
+          (let [[state-seq content] (get-history-state-initial-data state context)
                 default-history-content (assoc default-history-content (:id state) content)
                 entry-args [states-to-enter states-for-default-entry default-history-content]]
             (add-descendant-and-ancestor-states state-seq ancestor enter-args context))))
@@ -658,7 +677,9 @@ fit criteria"
 
 
 (defn compute-exit-set [transitions context]
-  (let [domains (map (fn [transition] (get-transition-domain transition context)) (targetted-transitions transitions))
+  (let [domains (map (fn [transition] 
+                       (get-transition-domain transition context)) 
+                     (targetted-transitions transitions))
         descendants (get-descendants domains (:vec (:configuration context)) context)]
     ;we know configuration is sorted in document order
     ;so we know that descendants must be.  For exiting states, however
@@ -666,9 +687,26 @@ fit criteria"
     (reverse descendants)))
 
 
+(defn store-history[context state]
+  (let [config-atomics (get-atomic-states-from-configuration context)]
+    (reduce (fn [context history]
+              (let [memory-states (if (= :deep (:history-type history))
+                                    (filter (fn [atomic]
+                                              (is-descendant atomic state context))
+                                            config-atomics)
+                                    (filter (fn [state]
+                                              (in-ordered-set? 
+                                               (:configuration context) state))
+                                            (:children state)))]
+                (assoc context :history 
+                       (assoc (:history context) (:id history) memory-states))))
+            context
+            (:history state))))
+
 (defn exit-states[context transitions]
   "exit states returning a new configuration"
-  (let [states-to-exit (compute-exit-set transitions context)]
+  (let [states-to-exit (compute-exit-set transitions context)
+        context (reduce store-history context states-to-exit)]
     (reduce (fn [context state]
               (let [context (execute-content (:onexit state) context)
                     configuration (remove-from-ordered-set (:configuration context) state)]
