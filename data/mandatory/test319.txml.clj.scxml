@@ -2,7 +2,7 @@
 
  <state id="s0">
    <onentry>
-     <if cond="event">
+     <if cond="_event">
        <raise event="bound"/>
        <else/>
          <raise event="unbound"/>

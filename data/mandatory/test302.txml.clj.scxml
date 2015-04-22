@@ -1,15 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?><!-- test that a script is evaluated at load time.  <conf:script> shoudl assign the value 1 to 
 Var1.  Hence, if script is evaluated at download time, Var1 has a value in the initial state s0.
 This test is valid only for datamodels that support scripting --><scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" version="1.0" datamodel="clojure" initial="s0">
- <script>var Var1 = 1</script>
-     
- <state id="s0">
-   <transition cond="(=,Var1,1)" target="pass"/>
-   <transition target="fail"/>
-   </state>
-   
-<final id="pass"><onentry><log label="Outcome" expr="&#34;pass&#34;"/></onentry></final>
-<final id="fail"><onentry><log label="Outcome" expr="&#34;fail&#34;"/></onentry></final>
+  <datamodel>
+    <data id="Var1"/>
+  </datamodel>
+  <script>(set-datamodel-value context :Var1 1)</script>
+  
+  <state id="s0">
+    <transition cond="(=,Var1,1)" target="pass"/>
+    <transition target="fail"/>
+  </state>
+  
+  <final id="pass"><onentry><log label="Outcome" expr="&#34;pass&#34;"/></onentry></final>
+  <final id="fail"><onentry><log label="Outcome" expr="&#34;fail&#34;"/></onentry></final>
 
-   
+  
 </scxml>

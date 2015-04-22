@@ -4,6 +4,9 @@
 
 <scxml xmlns="http://www.w3.org/2005/07/scxml" conf:datamodel="" 
 	version="1.0" xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0">
+  <datamodel>
+    <data conf:id="1"/>
+  </datamodel>
  <conf:script/>
      
  <state id="s0">

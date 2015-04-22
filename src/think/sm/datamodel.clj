@@ -61,6 +61,8 @@ that corresponds to the integers in the new machine"
     (let [[var-vec code-vec] dm-context
           var-vec (vec var-vec)]
       (println "(defn in-state [context id] (id (:set (:configuration context))))")
+      (println "(defn set-datamodel-value [context var value]
+  (assoc context :datamodel (assoc (:datamodel context) var value)))")
       (println "[")
       (doseq [code-item code-vec]
         (output-dm-prefix var-vec)
@@ -81,7 +83,9 @@ that corresponds to the integers in the new machine"
   (let [dm-context (:dm-context context)
         function (dm-context expression)]
     (when (not function)
-      (sling/throw+ { :type :execution-error :component :datamodel :reason "Missing expression" }))
+      (sling/throw+ { :type :execution-error 
+                     :component :datamodel 
+                     :reason "Missing expression" }))
     (function context)))
 
 (defn execute-data-list [context data-seq]

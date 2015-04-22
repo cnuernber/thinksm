@@ -5,16 +5,19 @@ Var1.  Hence, if script is evaluated at download time, Var1 has a value in the i
 This test is valid only for datamodels that support scripting -->
 
 <scxml version="1.0" xmlns="http://www.w3.org/2005/07/scxml" conf:datamodel=""
- xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0">
- <conf:script/>
-     
- <state id="s0">
-   <transition conf:idVal="1=1" conf:targetpass=""/>
-   <transition conf:targetfail=""/>
-   </state>
-   
-<conf:pass/>
-<conf:fail/>
+       xmlns:conf="http://www.w3.org/2005/scxml-conformance" initial="s0">
+  <datamodel>
+    <data conf:id="1"/>
+  </datamodel>
+  <conf:script/>
+  
+  <state id="s0">
+    <transition conf:idVal="1=1" conf:targetpass=""/>
+    <transition conf:targetfail=""/>
+  </state>
+  
+  <conf:pass/>
+  <conf:fail/>
 
-   
+  
 </scxml>

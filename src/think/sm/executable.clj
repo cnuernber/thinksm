@@ -75,6 +75,9 @@
 (defmethod parse-executable-content :cancel [node]
   (util/parse-attributes node {:type :cancel} { :sendid :string :sendidexpr :string }))
 
+(defmethod parse-executable-content :script [node]
+  { :type :script :expr (apply str (:content node)) })
+
 (defmethod parse-executable-content :default [node]
     (sling/throw+ { :type :parse-error :xml-node node :reason "Unrecognized executable content" }))
 
@@ -290,4 +293,7 @@
                                  (not (= send-id (:sendid (:event delayed)))))
                                  (:delayed-events context))]
     (assoc context :delayed-events delayed-events)))
+
+(defmethod execute-specific-content :script [item context]
+  (dm/execute-expression context (:expr item)))
     

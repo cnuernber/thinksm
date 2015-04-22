@@ -116,6 +116,15 @@
                          (:content node))]
     (assoc parent-state :history (conj (:history parent-state) history))))
 
+(defmethod parse-state-child :script [node parent-state]
+  (assoc parent-state :content [(exe/parse-executable-content node)]))
+
+(defmethod parse-state-child :initial [node parent-state]
+  (let [temp (parse-transition parent-state ((:content node) 0) )
+        transition-vec (:transitions temp)
+        transition (transition-vec (count (:transitions parent-state)))]
+    (assoc parent-state :initial transition)))
+
 (defmethod parse-state-child :default [child state]
   (sling/throw+ { :type :parse-error :xml-node child :reason "Unrecognized child in parse state" }))
                    
@@ -307,17 +316,24 @@
         (if context-history
           (add-descendant-and-ancestor-states context-history ancestor enter-args context)
           (let [[state-seq content] (get-history-state-initial-data state context)
-                default-history-content (assoc default-history-content (:id state) content)
-                entry-args [states-to-enter states-for-default-entry default-history-content]]
+                default-history-content (assoc default-history-content (:parent state) content)
+                enter-args [states-to-enter states-for-default-entry default-history-content]]
             (add-descendant-and-ancestor-states state-seq ancestor enter-args context))))
       ;not entering history state
       (let [states-to-enter (add-to-ordered-set states-to-enter state)]
         (if (is-compound-state state)
           (let [states-for-default-entry (add-to-ordered-set states-for-default-entry state)
-                enter-args [states-to-enter states-for-default-entry default-history-content] ]
-            (add-descendant-and-ancestor-states (get-effective-target-states state context) state enter-args context))
+                enter-args [states-to-enter states-for-default-entry default-history-content] 
+                initial-states (id-list-to-state-list 
+                                (:targets (get-initial-transition state)) 
+                                context)]
+            (add-descendant-and-ancestor-states initial-states state enter-args context))
           (if (is-parallel-state state)
-            (enter-parallel-state state [states-to-enter states-for-default-entry default-history-content] context)
+            (enter-parallel-state state 
+                                  [states-to-enter 
+                                   states-for-default-entry 
+                                   default-history-content] 
+                                  context)
             [states-to-enter states-for-default-entry default-history-content]))))))
                                 
 
@@ -553,7 +569,10 @@ Return a new configuration ordered set"
         context (if (or (not (:binding scxml))
                         (= :early (:binding scxml)))
                   (execute-early-binding context)
-                  (execute-datamodel-content context scxml))]
+                  (execute-datamodel-content context scxml))
+        context (if (:content scxml)
+                  (execute-content (:content scxml) context)
+                  context)]
     (enter-states context [transition])))
 
 
@@ -667,20 +686,24 @@ conflict with each other at this point forcing a further filtering step"
   (select-transitions context (fn [transition] (evented-transition? transition event-name context))))
 
 
-(defn get-descendants [parents children context]
+(defn get-item-or-descendants [parents config-seq context]
   "if a child is a descendant of any of the parents then return the child
 must not change the order of children, simply remove children that do not
 fit criteria"
-  (filter (fn [child]
-            (not-empty (filter (fn [parent] (is-descendant child parent context)) parents)))
-            children))
+  (filter (fn [state]
+            (seq (filter (fn [parent]
+                           (or (= (:id parent) (:id state))
+                               (is-descendant state parent context)))
+                         parents)))
+          config-seq))
 
 
 (defn compute-exit-set [transitions context]
   (let [domains (map (fn [transition] 
                        (get-transition-domain transition context)) 
                      (targetted-transitions transitions))
-        descendants (get-descendants domains (:vec (:configuration context)) context)]
+        descendants (get-item-or-descendants domains (:vec (:configuration context)) context)]
+
     ;we know configuration is sorted in document order
     ;so we know that descendants must be.  For exiting states, however
     ;we really want exactly the reverse of document order.

@@ -518,7 +518,7 @@
   <!-- scripting -->
 
   <xsl:template match="conf:script">
-    <script xmlns="http://www.w3.org/2005/07/scxml">var Var1 = 1</script>
+    <script xmlns="http://www.w3.org/2005/07/scxml">(set-datamodel-value context :Var1 1)</script>
   </xsl:template>
 
 
