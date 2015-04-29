@@ -59,7 +59,8 @@
         transition-content (reduce parse-executable-content [] (:content node))
         new-transition { :type type :content transition-content :targets target-list 
                         :parent (:id parent) :id (:id parent) :events event-list 
-                        :cond (:cond (:attrs node))}
+                        :cond (:cond (:attrs node))
+                        :transition-type (keyword (:type (:attrs node)))}
         new-transitions (conj (:transitions parent) new-transition)]
     (assoc parent :transitions new-transitions)))
 
@@ -345,16 +346,24 @@
       (enter-parallel-state state enter-args context)
       enter-args)))
 
+(defn parent-of [state context]
+  (if (and state (:parent state)) ((:parent state) (:id-state-map context)) nil))
+
+(defn parent-of-seq[state context]
+  (let [new-parent (parent-of state context)
+        parents (cons new-parent (lazy-seq (parent-of-seq new-parent context)))]
+    (take-while identity parents)))
+
 (defn get-proper-ancestors 
   ([state ancestor context retval]
-  (let [state-map (:id-state-map context)]
-    (loop [retval retval
-           parent (state-map (:parent state))]
-      (if (and parent 
-               (or (not ancestor)
-                   (not (= (:id parent) (:id ancestor)))))
-        (recur (conj retval parent) (state-map (:parent parent)))
-        retval))))
+   (let [parents (parent-of-seq state context)
+         ancestors (if ancestor
+                     (take-while
+                      (fn [item] 
+                        (not (= (:id item) (:id ancestor))))
+                      parents)
+                     parents)]
+     (into retval ancestors)))
   ([state ancestor context]
    (get-proper-ancestors state ancestor context [])))
 
@@ -404,14 +413,24 @@ then that node is not a child of this parent"
 
 
 (defn find-LCCA [state-seq context]
-  (reduce (fn [lhs rhs] (find-LCCA-state lhs rhs context)) state-seq))
+  (if (not state-seq)
+    nil
+    (let [first-state (first state-seq)
+          state-seq (rest state-seq)
+          ancestors (get-proper-ancestors first-state nil context)
+          base-lcca (first (filter (fn [ancestor] 
+                                     (every? (fn [state] 
+                                               (is-descendant state ancestor context)) 
+                                             state-seq))
+                                   ancestors))]
+      (non-parallel-or-parent base-lcca context))))
+
 
 
 (defn get-transition-domain [transition context]
   "take start, end points and find common ancestor"
   (let [targets (get-effective-target-states transition context)
-        state ((:parent transition) (:id-state-map context))
-        is-internal (:internal transition)
+        is-internal (= :internal (:transition-type transition))
         source (get-parent-state transition context)]
     (if (and is-internal
              (is-compound-state source)
@@ -692,8 +711,7 @@ must not change the order of children, simply remove children that do not
 fit criteria"
   (filter (fn [state]
             (seq (filter (fn [parent]
-                           (or (= (:id parent) (:id state))
-                               (is-descendant state parent context)))
+                           (is-descendant state parent context))
                          parents)))
           config-seq))
 
