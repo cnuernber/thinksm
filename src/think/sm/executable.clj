@@ -17,12 +17,6 @@
    :expr (:expr (:attrs node)) })
 
 
-(defn parse-send-param [node]
-  { :type :param :name (keyword (:name (:attrs node))) :expr (:expr (:attrs node)) })
-
-(defn get-content-child-data [node]
-  (apply str (:content node)))
-
 
 (def send-attributes
   { :event :string
@@ -38,10 +32,9 @@
    :namelist :keyword-list })
 
 (defmethod parse-executable-content :send [node]
-  (let [children (map parse-send-param (filter (fn [node] (= :param (:tag node))) (:content node)))
-        content (first (map get-content-child-data (filter (fn [node] (= :content (:tag node))) (:content node))))
+  (let [[params content] (util/parse-content-or-param-children node)
         stmt { :type :send }
-        stmt (if (not-empty children) (assoc stmt :children children) stmt )
+        stmt (if (not-empty params) (assoc stmt :children params) stmt )
         stmt (if content (assoc stmt :expr content) stmt)]
     (util/parse-attributes node stmt send-attributes)))
     
@@ -212,8 +205,23 @@
                :current-time current-time))
       (assoc context :current-time current-time ))))
 
+
 (defn execute-send-param [param context]
-    [ (:name param) (dm/execute-expression context (:expr param)) ])
+  (if (:expr param)
+    [ (:name param) (dm/execute-expression context (:expr param)) ]
+    (if (contains? (:datamodel context) (:location param) )
+      [ (:name param) ((:location param) (:datamodel context)) ]
+      (sling/throw+ (assoc context 
+                                                           :errormsg (str "Invalid datamodel location " (:location param) ) 
+                                                           :errorevent "error.execution" )))))
+
+(defn execute-event-data[item context]
+  (let [param-list (mapcat (fn [param] (execute-send-param param context)) (:children item))]
+    (if (:expr item) 
+      (dm/execute-expression context (:expr item)) 
+      (if (not-empty param-list)
+        (apply assoc {} param-list)
+        {}))))
 
 
 (defn build-send-event [item context send-id target]
@@ -222,12 +230,7 @@
                    (get-item-or-item-expr item :event-type :typeexpr context)
                    scxml-event-processor)
         evt-name (if (:event item) (:event item) (dm/execute-expression context (:eventexpr item)))
-        param-list (mapcat (fn [param] (execute-send-param param context)) (:children item))
-        evt-data (if (:expr item) 
-                   (dm/execute-expression context (:expr item)) 
-                   (if (not-empty param-list)
-                     (apply assoc {} param-list)
-                     {}))
+        evt-data (execute-event-data item context)
         datamodel (:datamodel context)
         evt-data (if (:namelist item)
                    (apply assoc evt-data 

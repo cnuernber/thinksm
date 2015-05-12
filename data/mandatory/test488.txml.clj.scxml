@@ -14,7 +14,7 @@
    </state>
    <final id="s02">
      <donedata>
-      <param expr="nil" name="someParam"/>
+      <param expr="(throw (Throwable. &#34;illegal expression&#34;))" name="someParam"/>
       </donedata>
      </final>
   </state>
@@ -24,7 +24,7 @@
  event has empty event.data -->
  
  <state id="s1">
-   <transition event="done.state.s0" cond="(:data event)" target="pass"/>
+   <transition event="done.state.s0" cond="(nil? (:data event))" target="pass"/>
    <transition event="*" target="fail"/>
    </state>
 

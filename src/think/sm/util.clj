@@ -89,3 +89,18 @@ s or ms.  Returns integer milliseconds"
         (recur (inc id-seed))
         [new-id id-seed (conj previous-id-set new-id)]))))
           
+
+(defn get-content-child-data [node]
+  (if (:expr (:attrs node))
+    (:expr (:attrs node))
+    (apply str (:content node))))
+
+
+(defn parse-send-param [node]
+  { :type :param :name (keyword (:name (:attrs node))) :expr (:expr (:attrs node))
+   :location (keyword (:location (:attrs node))) })
+
+(defn parse-content-or-param-children[node]
+  (let [children (map parse-send-param (filter (fn [node] (= :param (:tag node))) (:content node)))
+        content (first (map get-content-child-data (filter (fn [node] (= :content (:tag node))) (:content node))))]
+    [children content]))

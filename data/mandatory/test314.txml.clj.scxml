@@ -18,7 +18,7 @@ it should not raise an error until it gets to s03 and evaluates the illegal expr
 
   <state id="s03">
     <onentry>
-     <assign location="Var1" expr="nil"/>
+     <assign location="Var1" expr="(throw (Throwable. &#34;illegal expression&#34;))"/>
       <raise event="foo"/>
    </onentry>
      <transition event="error.execution" target="pass"/> 

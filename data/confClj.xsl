@@ -116,7 +116,7 @@
 
   <!-- this should return a value that cannot be assigned to a var.  -->
   <xsl:template match="//@conf:illegalExpr">
-    <xsl:attribute name="expr">nil</xsl:attribute>
+    <xsl:attribute name="expr">(throw (Throwable. "illegal expression"))</xsl:attribute>
   </xsl:template>
 
   <!-- this should add 1 to the value of the specified variable -->
@@ -160,7 +160,7 @@
 
   <!-- a content element whose value is the string 'foo' -->
   <xsl:template match="//conf:contentFoo"> 
-    <content xmlns="http://www.w3.org/2005/07/scxml">foo</content>
+    <content xmlns="http://www.w3.org/2005/07/scxml">"foo"</content>
   </xsl:template>
 
   <xsl:template match="//conf:someInlineVal">123</xsl:template>
@@ -382,14 +382,7 @@
     <xsl:attribute name="cond">
       <xsl:analyze-string select="."
 			  regex="([0-9]+)([=&lt;&gt;]=?)(.*)">
-	<xsl:matching-substring>_event.data['Var<xsl:value-of select="regex-group(1)"/><xsl:text>']</xsl:text>
-	<xsl:variable name="op"><xsl:value-of select="regex-group(2)"/></xsl:variable>
-	<xsl:choose>
-	  <xsl:when test="$op='='">==</xsl:when>
-	  <xsl:otherwise><xsl:value-of select="$op"/></xsl:otherwise>
-	</xsl:choose>
-	<xsl:value-of select="regex-group(3)"/>
-	</xsl:matching-substring>
+	<xsl:matching-substring>(<xsl:value-of select="regex-group(2)"/> (:Var<xsl:value-of select="regex-group(1)"/> (:data _event)) <xsl:value-of select="regex-group(3)"/>)</xsl:matching-substring>
 
       </xsl:analyze-string>
     </xsl:attribute>
@@ -421,7 +414,7 @@
   </xsl:template>
 
   <xsl:template match="//@conf:emptyEventData">
-    <xsl:attribute name="cond">(:data event)</xsl:attribute>
+    <xsl:attribute name="cond">(nil? (:data event))</xsl:attribute>
   </xsl:template>
 
   <!-- return true if the _name system var has the specified quoted value -->

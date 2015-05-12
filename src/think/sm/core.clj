@@ -126,6 +126,11 @@
         transition (transition-vec (count (:transitions parent-state)))]
     (assoc parent-state :initial transition)))
 
+(defmethod parse-state-child :donedata [node parent-state]
+  (let [[params content] (util/parse-content-or-param-children node)]
+    (assoc parent-state :donedata { :type :donedata :expr content :children params })))
+        
+
 (defmethod parse-state-child :default [child state]
   (sling/throw+ { :type :parse-error :xml-node child :reason "Unrecognized child in parse state" }))
                    
@@ -464,6 +469,14 @@ then that node is not a child of this parent"
 (defn enter-state-sort [state-seq]
   (sort-by :document-order state-seq))
 
+(defn handle-execution-error[context]
+  (let [msg (:errormsg context)
+        evt (:errorevent context)
+        context (assoc context :errormsg nil :errorevent nil)
+        context (exe/queue-event { :name evt :type "platform" } context true)]
+    (println (str "Error during execution: " msg))
+    context))
+
 (defn execute-content [content-list context]
   (sling/try+ 
     (reduce (fn [context content-or-list]
@@ -473,14 +486,7 @@ then that node is not a child of this parent"
                 (exe/execute-specific-content content-or-list context)))
             context
             content-list)
-    (catch map? context 
-            (let [msg (:errormsg context)
-                  evt (:errorevent context)
-                  context (assoc context :errormsg nil :errorevent nil)
-                  context (exe/queue-event { :name evt :type "platform" } context true)]
-              (println (str "Error during execution: " msg))
-              context))))
-        
+    (catch map? context (handle-execution-error context))))
 
 (defn get-initial-transition [state]
   (let [transition (:initial state)]
@@ -528,17 +534,27 @@ then that node is not a child of this parent"
       (execute-default-entry-content state states-for-default-entry)
       (execute-default-history-content state default-history-content)))
 
+(defn create-done-event-data[context final]
+  (sling/try+
+   (let [data (if (:donedata final)
+                (exe/execute-event-data (:donedata final) context)
+                nil)]
+     [context data])
+   (catch map? context [(handle-execution-error context) nil])))
 
+(defn create-done-event[context final]
+  (let [name (str "done.state." (name (:parent final)))
+        [context data] (create-done-event-data context final)]
+    (assoc context :events
+           (conj (:events context)
+                 (exe/create-event { :name name :data data } true)))))
+
+     
 ;this is done in a separate pass so that we generate only exactly the number of
 ;events we should
 (defn signal-done-states[context ordered-enter-states]
   (let [final-states (filter is-final-state? ordered-enter-states)
-        context (reduce (fn [context final]
-                          (assoc context :events 
-                                 (conj (:events context) 
-                                       (str "done.state." (name (:parent final))))))
-                        context
-                        final-states)
+        context (reduce create-done-event context final-states)
         all-ancestors (mapcat (fn [state] (get-proper-ancestors state nil context)) 
                               final-states)
         parallel-ancestors (distinct (filter (fn [state] (= :parallel (:type state))) 

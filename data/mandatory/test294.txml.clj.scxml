@@ -6,7 +6,7 @@ that content inside donedata sets the full value of the event.data field --><scx
      
  <state id="s0" initial="s01">
     
-   <transition event="done.state.s0" cond="_event.data['Var1']==1" target="s1">
+   <transition event="done.state.s0" cond="(= (:Var1 (:data _event)) 1)" target="s1">
      </transition>
      
       <transition event="done.state.s0" target="fail">
@@ -24,7 +24,7 @@ that content inside donedata sets the full value of the event.data field --><scx
  
  <state id="s1" initial="s11">
     
-   <transition event="done.state.s1" cond="(= (:data event) 'foo')" target="pass">
+   <transition event="done.state.s1" cond="(= (:data event) &#34;foo&#34;)" target="pass">
      </transition>
      
       <transition event="done.state.s1" target="fail">
@@ -35,7 +35,7 @@ that content inside donedata sets the full value of the event.data field --><scx
    </state>
    <final id="s12">
      <donedata>
-      <content>foo</content>
+      <content>"foo"</content>
       </donedata>
      </final>
  </state>

@@ -14,7 +14,7 @@ should cause an error, so var1 should be incremented only once --><scxml xmlns="
         <foreach item="Var2" array="Var3">
           <assign location="Var1" expr="(inc Var1)"/>
           <!-- assign an illegal value to a non-existent var -->
-          <assign location="Var5" expr="nil"/>
+          <assign location="Var5" expr="(throw (Throwable. &#34;illegal expression&#34;))"/>
           </foreach>
         </onentry>
 

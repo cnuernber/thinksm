@@ -77,7 +77,7 @@ that corresponds to the integers in the new machine"
          ;_ (println code)
          function-vec (load-string code)]
      [machine function-vec])
-   (catch Exception e (sling/throw+ { :type :compilation-failure :exception e }))))
+   (catch Throwable e (sling/throw+ { :type :compilation-failure :exception e }))))
 
 (defn execute-expression [context expression]
   (let [dm-context (:dm-context context)
@@ -86,7 +86,12 @@ that corresponds to the integers in the new machine"
       (sling/throw+ { :type :execution-error 
                      :component :datamodel 
                      :reason "Missing expression" }))
-    (function context)))
+    (sling/try+
+     (function context)
+     (catch Throwable e (sling/throw+
+                         (assoc context
+                                :errormsg (str "Exception during execution: " e) 
+                                :errorevent "error.execution"))))))
 
 (defn execute-data-list [context data-seq]
   (reduce (fn [context data]

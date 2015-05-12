@@ -7,7 +7,7 @@ expression, it must raise an error --><scxml xmlns="http://www.w3.org/2005/07/sc
 
 <state id="s0">
   <onentry>
-   <assign location="Var1" expr="nil"/>
+   <assign location="Var1" expr="(throw (Throwable. &#34;illegal expression&#34;))"/>
    <raise event="foo"/>
    </onentry>
    <transition event="error.execution" target="pass"/> 
