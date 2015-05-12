@@ -18,7 +18,8 @@
          execute-datamodel-content 
          get-atomic-states-from-configuration
          get-initial-transition
-         is-descendant )
+         is-descendant
+         handle-execution-error)
 
 
 
@@ -500,11 +501,28 @@ then that node is not a child of this parent"
             { :parent (:id state) :content [] :type :transition :targets [(:id first-child)] }
             nil))))))
 
+
+
+(defn execute-data-list [context data-seq]
+  (reduce (fn [context data]
+            (sling/try+
+             (let [datamodel (:datamodel context)
+                   varname (:id data)
+                   varvalue (dm/execute-expression context (:expr data))
+                   datamodel (assoc datamodel varname varvalue)]
+               (assoc context :datamodel datamodel))
+             (catch map? context
+               (let [context (handle-execution-error context)
+                     datamodel (assoc (:datamodel context) (:id data) nil)]
+                 (assoc context :datamodel datamodel)))))
+          context
+          data-seq))
+
 (defn execute-datamodel-content [context state]
   (if (not ((:visited-states context) (:id state)))
     (let [visited (conj (:visited-states context) (:id state))
           dm-list (if (:datamodel state) (:datamodel state) [])
-          context (dm/execute-data-list context dm-list)]
+          context (execute-data-list context dm-list)]
       (assoc context :visited-states visited))
     context))
       
@@ -621,8 +639,11 @@ Return a new configuration ordered set"
 
 (defn is-active-transition?[transition context]
   (if (:cond transition)
-    (dm/execute-expression context (:cond transition))
-    true))
+    (sling/try+
+     [(dm/execute-expression context (:cond transition)) context]
+     (catch map? context [false (handle-execution-error context)]))
+    [true context]))
+
 ;since we don't support event or conditions yet...
 (defn eventless-transition? [transition context]
   (let [event-list (:events transition)
@@ -656,18 +677,26 @@ Return a new configuration ordered set"
 
 
 (defn get-active-transition[state-seq filterp context]
-  (let [transitions (state-seq-to-transition-seq state-seq)
-        active-transitions (filter (fn [transition] (is-active-transition? transition context)) (filter filterp transitions))]
-    (first active-transitions)))
+  (let [transitions (filter filterp (state-seq-to-transition-seq state-seq))]
+    (loop [transition (first transitions)
+           transitions (rest transitions)
+           context context]
+      (if transition
+        (let [[is-active context] (is-active-transition? transition context)]
+          (if is-active
+            [transition context]
+            (recur (first transitions) (rest transitions) context)))
+        [nil context]))))
+              
 
 (defn get-transitions-from-atomics [atomics-seq filterp context]
-  (reduce (fn [transitions atomic]
+  (reduce (fn [[transitions context] atomic]
             (let [state-seq (get-proper-ancestors atomic nil context [atomic])
-                  first-transition (get-active-transition state-seq filterp context)]
+                  [first-transition context] (get-active-transition state-seq filterp context)]
               (if first-transition
-                (conj transitions first-transition)
-                transitions)))
-          []
+                [(conj transitions first-transition) context]
+                [transitions context])))
+          [[] context]
           atomics-seq))
 
 (defn transition-preempt? [first-trans second-trans context]
@@ -709,8 +738,8 @@ conflict with each other at this point forcing a further filtering step"
 
 (defn select-transitions [context transition-p]
   (let [atomics (get-atomic-states-from-configuration context)
-        selected (get-transitions-from-atomics atomics transition-p context)]
-    (remove-conflicting-transitions selected context)))
+        [selected context] (get-transitions-from-atomics atomics transition-p context)]
+    [(remove-conflicting-transitions selected context) context]))
 
 
 
@@ -812,7 +841,7 @@ fit criteria"
                          { :name next-event }
                          next-event)
             context (assoc context event-queue events :event next-event)
-            transitions (select-evented-transitions context event-name)
+            [transitions context] (select-evented-transitions context event-name)
             context (if (not-empty transitions) (microstep context transitions) context)]
         context)
       context)))
@@ -822,7 +851,7 @@ fit criteria"
    (let [context (exe/update-delayed-events 
                   (assoc context :event nil :current-time current-time) 
                   current-time)
-         eventless (select-eventless-transitions context)]
+         [eventless context] (select-eventless-transitions context)]
      (if (not-empty eventless)
        (microstep context eventless)
        (if (not-empty (:events context))

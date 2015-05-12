@@ -447,7 +447,7 @@
 
   <!-- returns a value that cannot be converted into a Boolean -->
   <xsl:template match="//@conf:nonBoolean">
-    <xsl:attribute name="cond">return</xsl:attribute>
+    <xsl:attribute name="cond">(throw (Throwable. "NonBoolean"))</xsl:attribute>
   </xsl:template>
 
   <!-- true if id has a value -->

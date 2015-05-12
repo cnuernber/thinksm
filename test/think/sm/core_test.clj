@@ -83,13 +83,14 @@
 ;277 requires failure the assignment which isn't possible in clojure without 
 ;complete compilation failure.
 (def test-number-blacklist 
-  [415 178 152 156 552 277 312 313 
-   314 487 307 309 325 326 329 330
-   331 344 500 501 301 580])
+  [415 178 152 552 313 
+   314 307 325 326 329 330
+   500 501 301 346 580])
 
 (def test-path-blacklist (into #{} (map test-number-to-file-name test-number-blacklist)))
 
 (defn run-test-and-report-result [fname]
+  (println "testing " fname)
   (sling/try+
    (let [full-test-name fname
          machine (load-scxml-file full-test-name)

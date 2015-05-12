@@ -93,14 +93,6 @@ that corresponds to the integers in the new machine"
                                 :errormsg (str "Exception during execution: " e) 
                                 :errorevent "error.execution"))))))
 
-(defn execute-data-list [context data-seq]
-  (reduce (fn [context data]
-            (let [datamodel (:datamodel context)
-                  varname (:id data)
-                  varvalue (execute-expression context (:expr data))
-                  datamodel (assoc datamodel varname varvalue)]
-              (assoc context :datamodel datamodel)))
-          context
-          data-seq))
+
               
     
